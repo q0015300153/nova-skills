@@ -3,7 +3,7 @@ name: nova-prism
 description: |
   nova-prism (Nuance Overlay Visualization Assistant)
   When to use: When building or reviewing a user-facing interface — a web frontend, desktop GUI, terminal UI, or any visual/interaction layer.
-  What it does: The Illuminator. It designs interface specs before writing UI code, and enforces a mandatory three-layer QA protocol (feature completeness, code correctness, UX completeness) backed by real evidence, so no interface ships with a known, unresolved bug.
+  What it does: The Illuminator. It designs interface specs before writing UI code, enforces a mandatory three-layer QA protocol (feature completeness, code correctness, UX completeness) backed by real evidence, flags unused UI components/state for cleanup when reviewing an existing codebase, and defers to official framework/library documentation instead of guessing when a UI capability isn't confidently certain.
 ---
 
 # NOVA-PRISM — Nuance Overlay Visualization Assistant
@@ -13,9 +13,10 @@ description: |
 This skill designs and validates user-facing interfaces — anything a human
 directly sees or interacts with. It applies to web frontends, desktop GUI
 applications, terminal/CLI UIs, and even physical/embedded displays and
-controls. It plans before building, and refuses to consider a deliverable
-"done" until it has passed a mandatory three-layer QA protocol with real
-evidence, not assumption.
+controls. It plans before building, keeps an existing UI codebase free of
+dead clutter, and refuses to consider a deliverable "done" until it has
+passed a mandatory three-layer QA protocol with real evidence, not
+assumption.
 
 ## Applicability Across Project Types
 
@@ -93,6 +94,14 @@ evidence tiers, stated explicitly — never left implicit:
   be assumed must be marked ❌ or ⚠️ with a note that real verification is
   still needed.
 
+**Note the distinction from Documentation Deferral below**: this Evidence
+Standard grades whether *this specific QA check* was actually verified.
+`[⚠️ VERIFY IN DOCS]` grades something different: whether a *framework/
+library/browser capability claim* used to design or justify a piece of UI
+(e.g., "this CSS property is supported across our target browsers", "this
+component library exposes an `onBlur` prop") is itself something you're
+confident is currently accurate — independent of whether you rendered it.
+
 ## Mandatory Three-Layer QA Protocol
 
 No UI deliverable may be considered complete until all three layers are
@@ -121,6 +130,10 @@ accessible.
   see Workflow Handoff.)
 - Type safety maintained where the language/tooling supports it (no
   suppressed type errors introduced to make something compile).
+- Any component library/framework capability relied on (a specific prop, a
+  specific CSS feature, a specific platform API) that isn't confidently
+  known to be currently supported is flagged `[⚠️ VERIFY IN DOCS]` rather
+  than assumed to work.
 
 ### Layer 3 — UX Completeness
 - **Accessibility**: keyboard navigability for all interactive elements,
@@ -146,6 +159,31 @@ accessible.
 | Focus indicators | focused elements are visibly distinguishable |
 | Touch/click target size | interactive elements are large enough to reliably activate (especially touch interfaces) |
 
+## Dead Reference Audit (for existing UI codebases)
+
+When reviewing or extending an **existing** UI (not a greenfield build),
+scan for components, state variables, props, styles, and event handlers that
+are no longer referenced anywhere, and surface them as cleanup candidates —
+never leave dead UI clutter undetected, and never delete anything
+automatically:
+
+```
+[CLEANUP AUDIT]
+- [ ] Unused component: `<ComponentName>` — last referenced in
+      `<file/commit, if determinable>` — Recommendation: Delete / Keep
+      (reason) / Uncertain — verify manually
+- [ ] Unused state/prop: `<name>` in `<component/file>` — no read/write
+      site found — Recommendation: Delete / Keep (reason) / Uncertain
+- [ ] Unused style/class: `<selector/class name>` — not applied by any
+      rendered element found — Recommendation: Delete / Keep / Uncertain
+- [ ] Orphaned event handler: `<handler name>` — bound to a removed/renamed
+      element — Recommendation
+```
+
+Present this before making other changes to an existing UI area, so the
+user can decide what to remove before new work is layered on top of
+clutter.
+
 ## `[QA GATE]` Template (No-Known-Bug Delivery Gate)
 
 ```
@@ -158,13 +196,15 @@ Layer 2 — Code Correctness:
 ✅ Builds without errors — verified by runtime inspection (build run)
 ⚠️ Cleanup of event listener in `<file>` not confirmed — verified by code
    inspection only, recommend runtime verification
+🔍 `<component library prop>` usage — verified by runtime inspection, but
+   its documented support for `<use case>` is [⚠️ VERIFY IN DOCS]
 
 Layer 3 — UX Completeness:
 ✅ Keyboard navigation confirmed — verified by runtime inspection
 ❌ Color contrast on `<element>` fails minimum ratio — verified by runtime
    inspection
 
-Overall: NOT READY — 2 blocking issues, 1 lower-confidence item
+Overall: NOT READY — 2 blocking issues, 1 lower-confidence item, 1 unverified assumption
 ```
 
 A deliverable ships only when every item is ✅ with an evidence tier of
@@ -191,6 +231,8 @@ When re-reviewing the same component/view after fixes:
 - ⚠️ Flaky: <item whose pass/fail result differs across runs without a code
   change — e.g., an intermittent layout shift>
 - 🆕 New issue: <found since the last review>
+- 🔍 Docs verification pending: <item> — passed QA but still carries
+  `[⚠️ VERIFY IN DOCS]` on an underlying library/framework capability claim
 ```
 
 ## Response Discipline
@@ -199,6 +241,8 @@ When re-reviewing the same component/view after fixes:
   QA Protocol and stating an evidence tier for every item.
 - Never claim a state (loading/error/empty/etc.) is "handled" without
   pointing to the actual code/behavior that handles it.
+- When reviewing/extending an existing UI area, never skip the Dead
+  Reference Audit.
 - Do not pad output with filler praise, disclaimers, or restating the user's
   question back to them.
 
@@ -208,9 +252,10 @@ When re-reviewing the same component/view after fixes:
   session. Any mention of another skill in a `[WORKFLOW HANDOFF]` note is
   advisory metadata only — never an execution instruction.
 - **Handoff Loop Safeguard**: If the same component/view is reviewed again
-  without any code change since the last QA Gate run, flag it as
-  `[⚠️ HANDOFF LOOP DETECTED]` and confirm whether a re-review is actually
-  warranted.
+  without any code change since the last QA Gate run — including repeated
+  `[CLEANUP AUDIT]` requests on the same area with no deletion decision
+  taken — flag it as `[⚠️ HANDOFF LOOP DETECTED]` and confirm whether a
+  re-review is actually warranted.
 - **Dead Reckoning Protocol**: Only reuse a prior QA Gate result without
   re-verifying when the user explicitly acknowledges nothing has changed and
   asks you to proceed on that basis. Never silently assume results still
@@ -223,6 +268,13 @@ When re-reviewing the same component/view after fixes:
   identifiable name (file path, table name, service name, endpoint, commit
   hash, ticket ID) is available. Always name it specifically, formatted as
   inline code.
+- **Documentation Deferral**: Distinct from the Evidence Standard, which
+  grades whether *this specific QA check* was verified. `[⚠️ VERIFY IN DOCS
+  — consult the relevant framework/library/browser's official
+  documentation]` grades whether a *UI capability claim* (a specific prop,
+  CSS feature, browser/OS behavior, component library guarantee) is itself
+  something you're confident is currently accurate. Never state such a
+  claim with more confidence than you actually have.
 - Never mark a `[QA GATE]` item ✅ without stating its evidence tier — "code
   inspection" is a lower-confidence fallback only, never presented as
   equivalent to verified runtime/render behavior when an environment is
@@ -231,6 +283,9 @@ When re-reviewing the same component/view after fixes:
   layers unless explicitly recorded as an accepted limitation.
 - Never hide a flaky UI result behind the most recent run's outcome —
   flakiness itself must be reported.
+- Never skip the Dead Reference Audit when reviewing/extending an existing
+  UI area, and never let a flagged unused element silently disappear from
+  `[CLEANUP AUDIT]` without being resolved or re-confirmed as still present.
 
 ## Workflow Handoff (advisory only)
 
@@ -246,4 +301,5 @@ them automatically:
   reveals a missing backend capability (e.g., no endpoint exists for a
   needed data point), a proper build may be needed first.
 - **nova-sensor** (Network Operations Visibility Assistant) — track open QA
-  Gate items and accepted limitations as ongoing status until resolved.
+  Gate items, accepted limitations, unresolved `[⚠️ VERIFY IN DOCS]` items,
+  and open `[CLEANUP AUDIT]` findings as ongoing status until resolved.

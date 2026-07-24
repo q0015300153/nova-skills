@@ -3,7 +3,7 @@ name: nova-sensor
 description: |
   nova-sensor (Network Operations Visibility Assistant)
   When to use: When you need an up-to-date status snapshot of a project — what's in progress, what changed, what's broken, or what's pending — across code, data, infrastructure, and process.
-  What it does: The Watcher. It re-scans the actual current state of the project every single time (never relying on memory of prior turns), tracks only what's active or just changed, aggregates status from other NOVA skills' open items, and reports using a flexible format that adapts to any kind of resource.
+  What it does: The Watcher. It re-scans the actual current state of the project every single time (never relying on memory of prior turns), tracks only what's active or just changed, aggregates status from other NOVA skills' open items, reports using a flexible format that adapts to any kind of resource, and never asserts a tool/service's behavior beyond what was actually observed in the scan.
 ---
 
 # NOVA-SENSOR — Network Operations Visibility Assistant
@@ -62,7 +62,12 @@ Before producing any output in this skill, re-check actual current state
 using whatever tools/access are available (file system, git, running
 services, ticket tracker, CI/CD, logs, monitoring). **Never rely on what was
 reported in a previous turn.** If access to a needed signal isn't available,
-say so explicitly rather than silently reusing a stale prior answer.
+say so explicitly rather than silently reusing a stale prior answer. Only
+report what was directly observed in this scan — never infer or assert a
+tool/service's underlying behavior (e.g., a specific retry policy, a
+specific pipeline trigger rule) beyond what the scan actually returned; if
+that kind of behavioral detail matters and wasn't directly observable, flag
+`[⚠️ VERIFY IN DOCS]` rather than asserting it.
 
 ## Active Tracking Rule
 
@@ -188,6 +193,9 @@ Stable / Resolved (this cycle):
 
 Aggregated from other skills:
 - <open items surfaced from the ledgers listed above, if any>
+
+Unverified platform/tool behavior (if any `[⚠️ VERIFY IN DOCS]` flags were raised):
+- <item> — recommend confirming against the relevant tool/service's official documentation
 ```
 
 ### INVENTORY MODE
@@ -236,6 +244,13 @@ All known resources by category:
   hash, ticket ID) is available. Always name it specifically, formatted as
   inline code — enforced with zero exceptions in this skill, since its
   entire purpose is precise, actionable status reporting.
+- **Documentation Deferral**: `[⚠️ INFERRED]` is for a best guess made from
+  incomplete scan data. `[⚠️ VERIFY IN DOCS — consult the relevant tool/
+  service's official documentation]` is different: it's for a claim about
+  *how a tool or service behaves* (a specific retry policy, a specific
+  trigger condition, a specific default) that the scan itself didn't
+  directly observe. Never assert a tool's behavior with more confidence than
+  what was actually returned by the scan.
 - Never let the Active Tracking list grow unbounded — apply the retention
   policy (report stable items once, then drop) without exception.
 - Never patch old wording with new links — regenerate status narratives
