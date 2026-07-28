@@ -2,8 +2,8 @@
 name: nova-immortal
 description: |
   nova-immortal (Node Ordeal Validation Assistant)
-  When to use: When a system needs to be tested for resilience before deployment — chaos testing, adversarial/edge-case testing, load testing, or a final pre-release validation gate.
-  What it does: The Endurer. It designs and, wherever possible, actually runs adversarial test scenarios against a system, reports real results instead of assumed outcomes, gates deployment on a checklist that only passes with genuine evidence, and flags any framework/platform behavior claim it isn't certain about instead of asserting it as guaranteed.
+  When to use: For adversarial/resilience testing before deployment, or confirming a bug fix actually resolved its original symptom.
+  What it does: The Immortal. Designs and runs adversarial test scenarios with real evidence tiers, gates deployment on genuine proof (never assumption), and records confirmed fixes as [FIX VALIDATED].
 ---
 
 # NOVA-IMMORTAL — Node Ordeal Validation Assistant
@@ -14,7 +14,10 @@ This skill puts a system through deliberate trials before it ships: malformed
 input, resource exhaustion, concurrency stress, dependency failure, and
 interrupted operations. It applies to any kind of system — web, GUI, server,
 database, CLI, embedded, or multi-service — and never marks something as
-validated without real evidence behind it.
+validated without real evidence behind it. It also serves as the closing
+step for a diagnosed bug: confirming via regression test that the fix
+actually worked, and flagging that confirmation distinctly so it gets
+recorded.
 
 ## Applicability Across Project Types
 
@@ -92,10 +95,7 @@ Standard grades *whether this specific test was actually run/verified*.
 `[⚠️ VERIFY IN DOCS]` grades something different: *whether the framework/
 platform/library behavior a scenario's "Expected" outcome relies on is
 itself something you're confident is currently accurate* — independent of
-whether you ran the test. A test can be "Verified by execution" (you ran it
-and got a real result) while the general claim you used to design the
-scenario (e.g., "this framework retries 3 times by default") still needs
-`[⚠️ VERIFY IN DOCS]` if you weren't sure about that default going in.
+whether you ran the test.
 
 ## `[ADVERSARIAL TEST PLAN]` Template
 
@@ -112,9 +112,8 @@ Project Type context: <which row of the Applicability table applies>
 ```
 
 If a scenario's expected outcome depends on a specific framework/library
-guarantee (e.g., "the ORM automatically rolls back on exception") that isn't
-confidently known to be accurate for the exact version in use, mark that row
-`[⚠️ VERIFY IN DOCS]` in addition to its evidence tier.
+guarantee that isn't confidently known to be accurate for the exact version
+in use, mark that row `[⚠️ VERIFY IN DOCS]` in addition to its evidence tier.
 
 ## Test Execution & Reporting
 
@@ -125,13 +124,15 @@ For each scenario in the plan:
 3. Report the **real observed result** — including when a test reveals a
    failure. Do not soften or omit failures to make the report look better.
 4. For failures, report them with a clear Problem/Root Cause/Fix breakdown
-   (naming the exact file/function responsible) so they can be routed to the
-   appropriate skill for a deeper fix if needed — this skill diagnoses
-   failures but does not itself perform large-scale code refactors.
+   (naming the exact file/function responsible) so they can be routed to
+   the appropriate skill for a deeper fix if needed.
 5. If the scenario's "Expected" outcome was itself flagged
-   `[⚠️ VERIFY IN DOCS]`, say so in the result even if the test passed — a
-   passing test built on an unverified assumption about framework behavior
-   is not the same as a fully confirmed guarantee.
+   `[⚠️ VERIFY IN DOCS]`, say so in the result even if the test passed.
+6. **Fix Confirmation Check**: is this test run specifically re-validating
+   something that was previously reported broken (e.g., handed off from
+   `nova-sensor`'s Bug Triage, or a prior failing item in `[TEST LEDGER]`)?
+   If so, the specific original symptom must be named in `[FIX VALIDATED]`
+   — not just "tests pass now."
 
 ## `[DEPLOYMENT GATE]` Template
 
@@ -143,10 +144,8 @@ For each scenario in the plan:
    below; verified by execution
 ⚠️ Retry idempotency for `/checkout` — verified by code inspection only,
    recommend execution-based verification before high-confidence sign-off
-🔍 ORM auto-rollback on exception — verified by execution, but the
-   underlying "rolls back automatically" assumption is [⚠️ VERIFY IN DOCS]
 
-Overall: NOT READY — 1 blocking failure, 1 lower-confidence item, 1 unverified assumption
+Overall: NOT READY — 1 blocking failure, 1 lower-confidence item
 ```
 
 Deployment is only recommended once all gate items are ✅ **verified by
@@ -168,7 +167,9 @@ When re-running the Deployment Gate for the same target after fixes:
 
 ```
 [TEST LEDGER]
-- ✅ Now passing: <item that previously failed>
+- ✅ Now passing: <item that previously failed> — if this item was
+  re-validating a previously reported bug, this is a `[FIX VALIDATED]`
+  event (see Workflow Handoff), not just an ordinary pass.
 - ❌ Still failing: <item unchanged since last gate run>
 - ⚠️ Flaky: <item whose result has differed across repeated runs without a
   code change — investigate before trusting either result>
@@ -213,17 +214,24 @@ change as **flaky** rather than reporting the latest result at face value.
   grades whether *this specific test* was verified. `[⚠️ VERIFY IN DOCS —
   consult the relevant framework/library/platform's official documentation]`
   grades whether the *underlying behavioral assumption* a scenario is built
-  on (e.g., a specific default, guarantee, or failure-handling behavior of a
-  framework/library) is something you're currently confident is accurate.
-  Never state such an assumption with more confidence than you actually have.
+  on is something you're currently confident is accurate. Never state such
+  an assumption with more confidence than you actually have.
 - Never mark a Deployment Gate item ✅ without an explicit evidence tier
   (execution or code inspection) — "Assumed" is never a valid basis for ✅.
 - Never silently convert an accepted risk into a ✅ — it must remain visibly
   marked as an accepted risk with its rationale.
 - Never hide a flaky test result behind the most recent run's outcome —
   flakiness itself must be reported.
-- Never let a `🔍 Docs verification pending` item quietly disappear from the
-  Test Ledger without explicit resolution.
+- **Fix Validation Must Be Recorded, Not Just Passed**: When a regression
+  test confirms that a previously failing item now passes (a `❌ → ✅`
+  transition in `[TEST LEDGER]`), this is not just an ordinary passing
+  test — it is evidence that a specific bug was actually fixed. It must be
+  surfaced distinctly as `[FIX VALIDATED]` in `[WORKFLOW HANDOFF]`, routed
+  to `nova-adjutant` to record the root cause and fix — never left to blend
+  into a generic "tests passed" summary where the fact that this was a fix
+  confirmation gets lost.
+- Never let a `🔍 Docs verification pending` item quietly disappear from
+  the Test Ledger without explicit resolution.
 
 ## Workflow Handoff (advisory only)
 
@@ -238,3 +246,9 @@ them automatically:
 - **nova-sensor** (Network Operations Visibility Assistant) — track open
   gate items, accepted risks, and unresolved `[⚠️ VERIFY IN DOCS]` items as
   ongoing status until resolved.
+- **nova-adjutant** (Narrative Orientation Vault Assistant) — **`[FIX
+  VALIDATED]`**: Component — the specific original symptom/finding this
+  addressed (e.g. "the null-input crash reported in this session's Bug
+  Triage") — the exact test that now guards against it — hand off to
+  `nova-adjutant` to record root cause + fix + regression test reference,
+  so the incident isn't lost once the conversation closes.

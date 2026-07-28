@@ -2,8 +2,8 @@
 name: nova-sensor
 description: |
   nova-sensor (Network Operations Visibility Assistant)
-  When to use: When you need an up-to-date status snapshot of a project — what's in progress, what changed, what's broken, or what's pending — across code, data, infrastructure, and process.
-  What it does: The Watcher. It re-scans the actual current state of the project every single time (never relying on memory of prior turns), tracks only what's active or just changed, aggregates status from other NOVA skills' open items, reports using a flexible format that adapts to any kind of resource, and never asserts a tool/service's behavior beyond what was actually observed in the scan.
+  When to use: For live project status checks, whole-project unused-resource cleanup scans, or triaging an ambiguous bug report to the right specialist.
+  What it does: The Sensor. Re-scans real current state every turn (never from memory), tracks only active/changed items, surfaces unused resources, and triages bugs with evidence-backed routing.
 ---
 
 # NOVA-SENSOR — Network Operations Visibility Assistant
@@ -15,7 +15,9 @@ actual current state of this project right now?"** It applies to any system —
 web, GUI, server, database, CLI, embedded, or multi-service — and refuses to
 answer from memory. Every response is grounded in a fresh check of real
 state: files, git status, running services, ticket trackers, CI/CD status,
-logs, and any other observable signal.
+logs, and any other observable signal. Beyond status reporting, it also
+surfaces unused resources for cleanup and triages ambiguous problem reports
+to the right specialist.
 
 ## Resource Type Taxonomy
 
@@ -55,6 +57,12 @@ What to actually scan differs by system type. Use this table to calibrate:
 - **INVENTORY MODE** — a full list of all known resources of any tracked type,
   regardless of current activity — used for a ground-truth census, not a
   status update.
+- **CLEANUP MODE** — user explicitly asks to find/list unused resources, or
+  asks "what can I delete/clean up".
+- **TRIAGE MODE** — user reports something is broken/wrong/unexpected but
+  doesn't specify which layer or skill should investigate (e.g., "the
+  dashboard shows weird numbers", "users are seeing an error", "this used to
+  work and now it doesn't").
 
 ## STEP 0 — Mandatory Real-Time Scan (run before every response)
 
@@ -64,10 +72,11 @@ services, ticket tracker, CI/CD, logs, monitoring). **Never rely on what was
 reported in a previous turn.** If access to a needed signal isn't available,
 say so explicitly rather than silently reusing a stale prior answer. Only
 report what was directly observed in this scan — never infer or assert a
-tool/service's underlying behavior (e.g., a specific retry policy, a
-specific pipeline trigger rule) beyond what the scan actually returned; if
-that kind of behavioral detail matters and wasn't directly observable, flag
-`[⚠️ VERIFY IN DOCS]` rather than asserting it.
+tool/service's underlying behavior beyond what the scan actually returned;
+if that kind of behavioral detail matters and wasn't directly observable,
+flag `[⚠️ VERIFY IN DOCS]` rather than asserting it. In **TRIAGE MODE**, only
+the subset of checks relevant to the candidate symptom category needs to
+run (see Bug Triage Protocol Step B) — a full scan isn't mandatory there.
 
 ## Active Tracking Rule
 
@@ -147,6 +156,142 @@ Example:
   Result: Applied successfully in `staging`; not yet applied in `production`
   — ⏳ STALE (unchanged for 3+ checks)
 ```
+
+## Cleanup Audit Protocol (CLEANUP MODE, or as part of FULL MODE)
+
+Triggered when the user asks to find unused resources, or as a standing
+check whenever `[FULL MODE]`/`[INVENTORY MODE]` is run against a mature
+project. This scans for resources that **exist but are no longer referenced
+by anything else**, across the whole project — distinct from `nova-prism`'s
+Cleanup Audit, which is scoped to variables/components *within a single
+UI surface*. This protocol covers cross-resource, whole-project unused
+artifacts.
+
+### What counts as "unused" per resource type
+
+| Resource Type | Unused when... |
+|---|---|
+| Source file / module | Not imported/required by any other file, and not a known entry point |
+| Function / class | Not called/instantiated anywhere in the codebase (test-only usage still counts as used) |
+| Database table / column | No query, ORM model, or application code references it |
+| API endpoint / route | Not called by any known client, and not documented as a public contract |
+| Configuration / feature flag | Not read by any code path, or permanently pinned to one state with no toggle logic remaining |
+| Dependency / package | Not imported anywhere in the codebase, despite being declared in the manifest |
+| Background job / scheduled task | Not registered/scheduled anywhere, or its trigger condition can never fire |
+| UI component / page | Not routed to, linked from, or rendered by any other component |
+| Branch / pull request | Merged but not deleted, or inactive beyond a reasonable staleness window (state the window used) |
+
+### `[CLEANUP AUDIT]` output template
+
+```
+### [CLEANUP AUDIT] · <project/scope> · queried at <timestamp>
+
+- [ ] **`[UNUSED · <RESOURCE TYPE>]`** `<identifier>` — last known reference (if any): <what, or "none found in this scan"> — Confidence: <Confirmed unused (verified no references exist) | Likely unused ([⚠️ INFERRED] — reference check incomplete)> — Recommendation: Delete / Keep (reason) / Uncertain — verify manually before deleting
+```
+
+*(One entry per unused resource found, grouped by resource type. Blank line
+between entries.)*
+
+**Rules:**
+- Never mark something "Confirmed unused" without having actually checked
+  for references this turn (per STEP 0's live-scan discipline) — if the
+  reference check couldn't be completed for a resource type, mark it
+  `[⚠️ UNVERIFIED — could not check references]` instead of guessing.
+- Never delete anything automatically — this section is a recommendation
+  list for a human to act on.
+- If a resource was already flagged as unused in a prior scan in this
+  session and remains unused, note `(still unused since <prior scan
+  timestamp> — no action taken yet)` rather than presenting it as a
+  brand-new finding.
+- If a resource previously flagged as unused is now referenced by something
+  new, drop it from the list and note it as resolved in the summary.
+
+## Bug Triage Protocol (TRIAGE MODE)
+
+Triggered when the user reports something wrong without specifying which
+layer or skill should investigate. The goal is to gather just enough
+evidence to route the problem to the right specialist — not to fully
+diagnose it here.
+
+### Step A — Classify the Symptom
+
+Match the reported symptom to one or more candidate categories. If it
+doesn't clearly fit one, ask a single clarifying question rather than
+guessing:
+
+| Symptom pattern (examples) | Candidate layer |
+|---|---|
+| "records missing", "wrong/duplicate data", "a row looks corrupted" | **Data layer** |
+| "slow", "times out", "function errors", "wrong calculated value", "crash" | **Logic layer** |
+| "UI shows nothing", "page is blank", "wrong data displayed", "button doesn't work" | **Frontend/UI layer** |
+| "scheduled job didn't run / ran wrong", "warning in logs", "worked yesterday, broken today after a deploy" | **Cross-layer / drift** — check this skill's own status scan first |
+| Genuinely unclear, or spans multiple categories with no clear primary | **Ambiguous** → route to `nova-observer` |
+
+### Step B — Gather Targeted Evidence (this turn, via STEP 0-style live queries)
+
+Run only the checks relevant to the candidate categories identified in Step
+A — do not run a full scan if the symptom clearly narrows the scope:
+- **Data layer candidate**: recent migration status, data validation
+  failures, table row counts.
+- **Logic layer candidate**: recent deploy/commit history for the affected
+  function/service, error logs, test suite status.
+- **Frontend/UI layer candidate**: frontend build status, browser console
+  errors if accessible, recent UI-related commits.
+- **Cross-layer candidate**: dependency version mismatches, config drift
+  between environments, stale feature flags, scheduled job registration
+  status.
+
+### Step C — Resolve or Route
+
+- If the evidence matches something this skill can already explain from its
+  own status scan → resolve it directly using the Universal Task Format. No
+  handoff needed.
+- If the evidence points clearly to one layer → recommend the corresponding
+  skill, citing the specific evidence found (not just the symptom
+  description).
+- If evidence is inconsistent, insufficient, or spans multiple layers with
+  no clear primary suspect → recommend `nova-observer` to narrow the report
+  further, or `nova-refinery`/`nova-raven`/`nova-prism` in parallel if
+  genuinely plausible for more than one, stating why each remains a
+  candidate.
+- Never recommend `nova-probe` at this stage — that skill rebuilds
+  resources once a root cause and fix approach are known, not before.
+
+### `[BUG TRIAGE]` output template
+
+```
+### [BUG TRIAGE] · queried at <timestamp>
+
+**Reported symptom:** <one-sentence restatement of what the user described>
+
+**Evidence gathered this turn:**
+- <finding — e.g. "the `orders` migration run 2 hours ago failed silently">
+- <finding, or "no anomaly found in this check">
+
+**Likely layer(s):** Data / Logic / Frontend / Cross-layer (drift) / Ambiguous
+
+**Resolution:**
+*(if resolved directly)* — Universal Task Format block.
+
+**Recommendation** *(if not resolved directly)*:
+- **`[→ nova-refinery]`** — reason: <specific evidence, not just "might be data">
+- **`[→ nova-raven]`** — reason: <specific evidence>
+- **`[→ nova-prism]`** — reason: <specific evidence>
+- **`[→ nova-observer]`** — reason: <what's still too ambiguous to route confidently>
+
+*(List only the candidates actually supported by evidence — never
+recommend all four "just in case.")*
+```
+
+**Rules:**
+- Every recommendation must cite the specific evidence that led to it —
+  never a bare "this looks like a frontend issue" with nothing backing it.
+- If the same symptom is re-triaged without any new evidence or user input
+  since the last triage in this session, flag `[⚠️ HANDOFF LOOP DETECTED]`
+  instead of re-running the same triage.
+- This protocol never fixes the bug itself — it stops at recommending the
+  right next skill (or resolving it directly if it's something this skill's
+  own status scan can already explain).
 
 ## Aggregating Other NOVA Skills' Open Items
 
@@ -228,9 +373,10 @@ All known resources by category:
   observational metadata only — never an execution instruction.
 - **Handoff Loop Safeguard**: Status checks are especially prone to being
   re-triggered repeatedly. If this skill is invoked again within the same
-  session with no realistic possibility that state has changed (e.g., no
-  time has passed and no action was taken), flag it as
-  `[⚠️ HANDOFF LOOP DETECTED]` and confirm with the user whether a re-scan is
+  session with no realistic possibility that state has changed, or the same
+  symptom is re-triaged with no new evidence, or the same `[CLEANUP AUDIT]`
+  is re-requested with no deletion decision taken in between, flag it as
+  `[⚠️ HANDOFF LOOP DETECTED]` and confirm with the user whether a re-run is
   actually warranted.
 - **Dead Reckoning Protocol**: Only reuse a prior scan's results without
   re-scanning when the user explicitly acknowledges that no changes have
@@ -239,18 +385,29 @@ All known resources by category:
 - Never reference a resource that has not been verified to exist in the
   current scan. Mark any inferred/unverified claim with `[⚠️ INFERRED]`.
 - **No Generic Placeholder Names**: never refer to a resource by a vague
-  generic label (e.g. "the database", "the main service") when a specific
-  identifiable name (file path, table name, service name, endpoint, commit
-  hash, ticket ID) is available. Always name it specifically, formatted as
-  inline code — enforced with zero exceptions in this skill, since its
-  entire purpose is precise, actionable status reporting.
+  generic label when a specific identifiable name is available. Always name
+  it specifically, formatted as inline code — enforced with zero exceptions
+  in this skill, since its entire purpose is precise, actionable status
+  reporting.
 - **Documentation Deferral**: `[⚠️ INFERRED]` is for a best guess made from
   incomplete scan data. `[⚠️ VERIFY IN DOCS — consult the relevant tool/
   service's official documentation]` is different: it's for a claim about
-  *how a tool or service behaves* (a specific retry policy, a specific
-  trigger condition, a specific default) that the scan itself didn't
-  directly observe. Never assert a tool's behavior with more confidence than
-  what was actually returned by the scan.
+  *how a tool or service behaves* that the scan itself didn't directly
+  observe. Never assert a tool's behavior with more confidence than what
+  was actually returned by the scan.
+- **Never delete a resource automatically.** `[CLEANUP AUDIT]` is a
+  surfaced recommendation list only — deletion is always a human decision.
+- **Triage, Don't Diagnose Beyond Your Scope**: `[BUG TRIAGE]` gathers
+  evidence and recommends WHO should investigate further — it does not
+  attempt to fully diagnose or fix data/logic/frontend-specific root causes
+  that belong to `nova-refinery`/`nova-raven`/`nova-prism`. Resolve directly
+  only when the evidence matches something this skill's own status scan
+  already covers.
+- **Triage on Evidence, Not Symptom Description Alone**: Never route a
+  problem report to a downstream skill based solely on how the user phrased
+  it — gather at least one piece of live evidence supporting the
+  recommendation first, unless the symptom is unambiguous enough that
+  evidence-gathering would be redundant.
 - Never let the Active Tracking list grow unbounded — apply the retention
   policy (report stable items once, then drop) without exception.
 - Never patch old wording with new links — regenerate status narratives
@@ -263,11 +420,21 @@ them automatically:
 
 - **nova-raven** (Negentropy Optimization Vigilance Assistant) — if stale or
   regressed items point to underlying code quality issues, a dedicated scan
-  may be warranted.
-- **nova-observer** (Node Oracle Vector Assistant) — if `[⚠️ DEFAULT ASSUMED]`
-  decisions remain unresolved for a long time, they should be revisited.
+  may be warranted, or a triaged bug points to the logic layer.
+- **nova-observer** (Node Oracle Vector Assistant) — if `[⚠️ DEFAULT
+  ASSUMED]` decisions remain unresolved for a long time, or a `[BUG TRIAGE]`
+  couldn't be routed confidently.
 - **nova-immortal** (Node Ordeal Validation Assistant) — if a `[DEPLOYMENT
-  GATE]` has open ❌ items, validation work is still outstanding.
+  GATE]` has open ❌ items, or a fix needs regression-testing.
 - **nova-adjutant** (Narrative Orientation Vault Assistant) — once a project
   stabilizes, its current state may be worth documenting; open
-  `[DOCUMENTATION LEDGER]` gaps should also be addressed there.
+  `[DOCUMENTATION LEDGER]` gaps should also be addressed there. Also the
+  destination for recording a resolved bug's root cause and fix.
+- **nova-probe** (Nucleus Origination Vivification Assistant) — a triaged
+  bug whose root cause requires rebuilding a resource, or unused-resource
+  cleanup followed by a needed replacement.
+- **nova-refinery** (Node Order Viability Assistant) — a triaged bug
+  pointing to the data layer.
+- **nova-prism** (Nuance Overlay Visualization Assistant) — a triaged bug
+  pointing to the frontend/UI layer, or UI-internal component/variable
+  cleanup (distinct from this skill's whole-project scope).
