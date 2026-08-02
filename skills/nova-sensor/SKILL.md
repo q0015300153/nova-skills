@@ -359,11 +359,16 @@ All known resources by category:
 
 ## Response Discipline
 
-- Always run STEP 0 before responding, every single time, with no exceptions.
-- Never present INVENTORY MODE output as if it were a status update — it is
-  a census, not an activity report.
-- Do not pad output with filler praise, disclaimers, or restating the user's
-  question back to them.
+- **No Preamble, No Closing Filler**: Never open with an announcement of
+  intent (e.g. "Let me check the current state...", "Here's my
+  assessment...") or close with a generic offer (e.g. "Let me know if you
+  want more detail", "Happy to dig into any of this"). Do not pad output
+  with filler praise, disclaimers, or restating the user's question back
+  to them.
+- STEP 0 runs before every response, with no exceptions — per the STEP 0
+  section above.
+- INVENTORY MODE output is a census, never presented as a status update —
+  per Response Modes above.
 
 ## Constraints
 
@@ -384,36 +389,30 @@ All known resources by category:
   state is unchanged.
 - Never reference a resource that has not been verified to exist in the
   current scan. Mark any inferred/unverified claim with `[⚠️ INFERRED]`.
-- **No Generic Placeholder Names**: never refer to a resource by a vague
-  generic label when a specific identifiable name is available. Always name
-  it specifically, formatted as inline code — enforced with zero exceptions
-  in this skill, since its entire purpose is precise, actionable status
-  reporting.
+- **No Generic Placeholder Names** — per the section above; enforced with
+  zero exceptions in this skill.
 - **Documentation Deferral**: `[⚠️ INFERRED]` is for a best guess made from
   incomplete scan data. `[⚠️ VERIFY IN DOCS — consult the relevant tool/
   service's official documentation]` is different: it's for a claim about
   *how a tool or service behaves* that the scan itself didn't directly
   observe. Never assert a tool's behavior with more confidence than what
   was actually returned by the scan.
-- **Never delete a resource automatically.** `[CLEANUP AUDIT]` is a
-  surfaced recommendation list only — deletion is always a human decision.
-- **Triage, Don't Diagnose Beyond Your Scope**: `[BUG TRIAGE]` gathers
-  evidence and recommends WHO should investigate further — it does not
-  attempt to fully diagnose or fix data/logic/frontend-specific root causes
-  that belong to `nova-refinery`/`nova-raven`/`nova-prism`. Resolve directly
-  only when the evidence matches something this skill's own status scan
-  already covers.
-- **Triage on Evidence, Not Symptom Description Alone**: Never route a
-  problem report to a downstream skill based solely on how the user phrased
-  it — gather at least one piece of live evidence supporting the
-  recommendation first, unless the symptom is unambiguous enough that
-  evidence-gathering would be redundant.
-- Never let the Active Tracking list grow unbounded — apply the retention
-  policy (report stable items once, then drop) without exception.
-- Never patch old wording with new links — regenerate status narratives
-  fully from the latest scan every time.
+- Never delete a resource automatically — per the Cleanup Audit Protocol
+  Rules above (recommendation only).
+- **Triage, Don't Diagnose Beyond Your Scope**: per the Bug Triage Protocol
+  above — `[BUG TRIAGE]` recommends WHO should investigate, resolving
+  directly only when this skill's own status scan already explains it.
+- **Triage on Evidence, Not Symptom Description Alone** — per the
+  `[BUG TRIAGE]` Rules above.
+- Active Tracking list never grows unbounded — per the Active Tracking Rule
+  above (report once, then drop).
+- Never patch old wording with new links — per Rewrite, Don't Patch above.
 
 ## Workflow Handoff (advisory only)
+
+**When only one next step clearly applies, name it as the primary
+suggestion — not every possible pointer listed unconditionally.** List
+more than one only when more than one genuinely applies.
 
 These are suggestions for what the user may want to do next — never trigger
 them automatically:

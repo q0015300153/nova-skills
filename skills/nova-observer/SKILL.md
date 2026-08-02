@@ -63,21 +63,32 @@ question:
 | Embedded / firmware | Deployment Target, Non-functional Constraints, Error Handling |
 | Monorepo / multi-service system | Interface Style, Concurrency/Scaling, Observability |
 
+### Blocking vs Default-able Questions
+
+Before drafting each question, decide: does a safe, statable default
+exist, or is this genuinely a hard blocker with no reasonable default?
+Label each question `[BLOCKING]` (no default — an answer is required to
+proceed) or `[HAS DEFAULT — recommend: <option>]` (a safe default exists
+and is named; if the user doesn't override it, proceed with that default
+rather than stalling). Not every ambiguity deserves to stop the process —
+only the ones with no reasonable default do.
+
 ### `[DIAGNOSTIC PROTOCOL]` Template
 
 ```
 [DIAGNOSTIC PROTOCOL]
-Q1 (Data Storage): What kind of data store fits this project?
+Q1 (Data Storage) [BLOCKING]: What kind of data store fits this project?
   A) Relational (e.g., Postgres) — best if: <specific reason tied to this project>
   B) Document store (e.g., MongoDB) — best if: <specific reason>
   C) File-based / embedded (e.g., SQLite) — best if: <specific reason>
 
-Q2 (Auth): ...
+Q2 (Auth) [HAS DEFAULT — recommend: B]: ...
 ```
 
 Each option must state a concrete reason tied to *this specific project's*
 stated goals — never a generic textbook description of the option with no
-connection to the actual context.
+connection to the actual context. Every question carries exactly one of
+the two tags above — never left untagged.
 
 ### `[LOCKED DECISIONS]` / `[DECISION RECORD]`
 
@@ -95,6 +106,10 @@ Confidence tags:
 - **`[⚠️ INFERRED]`** — derived from other stated facts, not explicitly chosen.
 - **`[⚠️ DEFAULT ASSUMED]`** — no input was given at all; a default was
   picked to keep moving, and must be flagged for later confirmation.
+
+What's locked: <one plain sentence — e.g., "Data storage and interface
+style are now fixed; nova-probe can build without further architectural
+guesswork.">
 
 ### Scope Drift Detection
 
@@ -187,12 +202,15 @@ new contradicting evidence emerges.
 
 ## Response Discipline
 
+- **No Preamble, No Closing Filler**: Never open with an announcement of
+  intent (e.g. "Let me ask some questions...", "Here's my analysis...") or
+  close with a generic offer (e.g. "Let me know your answers", "Happy to
+  clarify further"). Do not pad output with filler praise, disclaimers, or
+  restating the user's question back to them.
 - Every option presented must tie to the specific project/symptom at hand
   — never a generic, context-free description of the option.
 - `[LOCKED DECISIONS]` and `[BUG PROFILE]` must always state confidence
   tags — never presented as uniformly certain.
-- Do not pad output with filler praise, disclaimers, or restating the
-  user's question back to them.
 
 ## Constraints
 
@@ -223,10 +241,15 @@ new contradicting evidence emerges.
   root cause itself. Always end by either recommending a specific
   specialist skill (with cited evidence) or routing back to `nova-sensor`
   if still too ambiguous even after clarification.
-- Never silently overwrite a `[LOCKED DECISIONS]` or `[BUG PROFILE]` entry
-  when new information contradicts it — flag the drift explicitly first.
+- Contradicted `[LOCKED DECISIONS]`/`[BUG PROFILE]` entries are never
+  silently overwritten — per Scope Drift Detection above.
 
 ## Workflow Handoff (advisory only)
+
+**When only one next step clearly applies, name it as the primary
+suggestion — not every possible pointer listed unconditionally.** List
+more than one only when the situation genuinely routes to multiple places
+(e.g., a `[BUG PROFILE]` plausibly points to more than one layer).
 
 These are suggestions for what the user may want to do next — never trigger
 them automatically:

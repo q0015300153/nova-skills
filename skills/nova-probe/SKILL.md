@@ -239,6 +239,8 @@ before the next one depends on it. After each tier:
 [TIER COMPLETE]
 Tier: <N> — <layer name>
 Artifacts generated: <count and list, with real file paths/table names>
+What this enables now: <one plain sentence — e.g. "The OrderItem entity is
+defined and importable; nothing uses it yet until Tier 5's service is built.">
 Open checklist items: <any unresolved items in this tier>
 Open flags: <any [⚠️ INFERRED] / [⚠️ VERIFY IN DOCS] / sensitivity flags still open>
 Next: Tier <N+1> (<layer name>), or reply "CONFIRMED — ALL AT ONCE" to
@@ -305,6 +307,11 @@ until the user confirms the underlying assumption/review is resolved.
 
 ## Response Discipline
 
+- **No Preamble, No Closing Filler**: Never open with an announcement of
+  intent (e.g. "Let me plan this build...", "Here's my blueprint...") or
+  close with a generic offer (e.g. "Let me know if you want changes",
+  "Happy to revise this"). Do not pad output with filler praise,
+  disclaimers, or restating the user's question back to them.
 - Never generate code before the blueprint is confirmed.
 - Never silently expand scope beyond what was requested — if the build
   reveals that more is needed than initially scoped, surface it as an
@@ -313,8 +320,6 @@ until the user confirms the underlying assumption/review is resolved.
   EXPOSURE REVIEW]` first, when that review applies.
 - Always name real, specific artifacts (file paths, table names, service
   names) in the blueprint and in generated output — never placeholders.
-- Do not pad output with filler praise, disclaimers, or restating the user's
-  question back to them.
 
 ## Constraints
 
@@ -345,31 +350,30 @@ until the user confirms the underlying assumption/review is resolved.
   current — never invent plausible-looking syntax for an API you're unsure
   about; flag it instead so the user can confirm before relying on it.
 - Never skip the `[ORIGIN BLUEPRINT]` confirmation step, even for
-  small-seeming requests — the user must always approve the plan before code
-  is generated.
-- Never generate a higher-tier artifact that silently depends on a
-  lower-tier artifact that was never created or confirmed.
-- Never propose a breaking data/automation change without explicitly
-  surfacing the risk and a mitigation path.
-- Never let a `📝 Draft` or `✅ Confirmed` Build Ledger entry silently
-  disappear without being marked `🏗️ Built` or `🔁 Superseded`, and never
-  let a `🔍 Docs verification pending` or `🔒 Exposure review pending`
-  entry disappear without explicit resolution.
-- **Use Case Scoping is the default, not an afterthought**: never include a
-  field "just in case" without it going through `[DATA EXPOSURE REVIEW]`
-  first when that review applies.
-- **Sensitive fields are never silently included.** Every match against the
-  Sensitivity Heuristic requires an explicit Include/Exclude decision with
-  a stated reason, and a hand-off to `nova-refinery` if included.
-- **`[BUILD ORIGIN]` is mandatory, not optional, for bug-driven rebuilds.**
-  Never start a bug-driven rebuild's blueprint without first stating the
-  originating skill, original symptom, root cause, and this build's role.
-- **Paced Delivery is the default.** Do not generate all tiers in one
-  response unless the user has explicitly said "CONFIRMED — ALL AT ONCE"
-  or the build is trivial enough that pacing would be pure overhead (state
-  this explicitly when skipping pacing for that reason).
+  small-seeming requests — per Required Workflow step 5 above.
+- Never generate a higher-tier artifact silently depending on a
+  lower/unconfirmed tier — per the Build Order note above.
+- Never propose a breaking data/automation change without surfacing risk
+  and mitigation — per Safety & Rollback above.
+- Build Ledger entries are never silently dropped — per the Build Ledger
+  section above.
+- **Use Case Scoping is the default, not an afterthought** (see above) —
+  never include a field "just in case" without it going through `[DATA
+  EXPOSURE REVIEW]` first when that review applies.
+- Sensitive fields are never silently included — per the `[DATA EXPOSURE
+  REVIEW]` Rules above (explicit Include/Exclude decision + hand-off to
+  `nova-refinery` if included).
+- **`[BUILD ORIGIN]` is mandatory, not optional, for bug-driven rebuilds**
+  — per Required Workflow step 2 and the `[BUILD ORIGIN]` template above.
+- **Paced Delivery is the default** — per the Paced Delivery section above.
 
 ## Workflow Handoff (advisory only)
+
+**When only one next step clearly applies, name it as the primary
+suggestion — not every possible pointer listed unconditionally.** List
+more than one only when more than one genuinely applies (e.g., a build
+just completed AND it also has open exposure-review items for
+`nova-refinery`).
 
 These are suggestions for what the user may want to do next — never trigger
 them automatically:

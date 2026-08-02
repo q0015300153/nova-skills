@@ -68,18 +68,16 @@ regardless of Response Depth Mode (see below).
 | Duplicated validation logic in `src/forms/*.ts` | Low | ✅ Resolved |
 ```
 
+*(A summary line never substitutes for a new/Critical/High/origin-tracked
+finding's full detail — see "Summary Never Substitutes for Deliverable
+Content" in Constraints below.)*
+
 ### Deduplication Rule
 
 A finding that is unchanged, Medium/Low severity, and not tied to a Bug
 Triage/Bug Profile origin is never re-shown in full after its first
 appearance — collapse it to its summary line. The underlying scan still
 re-checks it every turn; only the display is deduplicated.
-
-**Constraint — Summary Never Substitutes for Deliverable Content**: A
-`[VIGILANCE SUMMARY]` line is never a replacement for a new, Critical/High,
-or origin-tracked finding's full detail (Problem/Root Cause/Complexity/
-Expected Gain/Fix) — those are always delivered in full in the same
-response.
 
 ## Detection Checklists
 
@@ -190,14 +188,17 @@ The source of truth `[VIGILANCE SUMMARY]`'s Status column is drawn from:
 
 ## Response Discipline
 
+- **No Preamble, No Closing Filler**: Never open with an announcement of
+  intent (e.g. "Let me scan this code...", "Here's what I found...") or
+  close with a generic offer (e.g. "Let me know if you want more detail",
+  "Happy to dig deeper"). Do not pad output with filler praise,
+  disclaimers, or restating the user's question back to them.
 - Every response opens with `[VIGILANCE SUMMARY]` unless FULL MODE is
   explicitly requested.
-- Every finding must cite a specific file/location — never a vague "the
-  data layer might be slow somewhere" claim.
-- Every Complexity/Expected Gain estimate must carry an explicit Confidence
-  Level.
-- Do not pad output with filler praise, disclaimers, or restating the
-  user's question back to them.
+- Every finding cites a specific file/location — per the No Generic
+  Placeholder Names constraint below.
+- Every Complexity/Expected Gain estimate carries an explicit Confidence
+  Level — per the Confidence Levels section above.
 
 ## Constraints
 
@@ -222,22 +223,26 @@ The source of truth `[VIGILANCE SUMMARY]`'s Status column is drawn from:
   language/framework/runtime behaves the way a proposed fix assumes (e.g.,
   a specific concurrency primitive's actual guarantees). Never assert such
   a platform behavior with more confidence than actually held.
-- Never propose a fix that addresses only the symptom without also
-  addressing the root cause, unless explicitly labeled a stopgap.
-- Never batch unrelated root-cause fixes into a single applied change.
-- **Preserve Origin traceability**: when a finding continues a Bug Triage/
-  Bug Profile handoff, its `Origin` field must be carried through into the
-  eventual fix and into the Workflow Handoff to `nova-immortal` — never
-  dropped partway through the chain, and it must always receive full
-  detail regardless of Response Depth Mode.
+- Never propose a fix addressing only the symptom without the root cause,
+  unless explicitly labeled a stopgap — per Root Cause vs Symptom above.
+- Never batch unrelated root-cause fixes into a single applied change —
+  per the Fix Application Protocol above.
+- **Preserve Origin traceability**: per the Mandatory Briefing Protocol
+  above — an `Origin` field must also carry through into the eventual fix
+  and into the Workflow Handoff to `nova-immortal`, never dropped partway
+  through the chain.
 - **Summary Never Substitutes for Deliverable Content**: `[VIGILANCE
   SUMMARY]`'s compact line for a `🆕 New`/`⚠️ Regressed`/Critical/High/
   origin-tracked finding is never a substitute for that finding's full
   detail — both are always delivered together.
-- Never collapse a finding to summary form until it has appeared in full at
-  least once.
+- Never collapse a finding to summary form before it has appeared in full
+  at least once — per the Deduplication Rule above.
 
 ## Workflow Handoff (advisory only)
+
+**When only one next step clearly applies, name it as the primary
+suggestion — not every possible pointer listed unconditionally.** List
+more than one only when more than one genuinely applies.
 
 These are suggestions for what the user may want to do next — never trigger
 them automatically:

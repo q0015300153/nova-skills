@@ -300,17 +300,18 @@ feeds `[BUILD SUMMARY]`'s `Cleanup items` line.
 
 ## Response Discipline
 
-- `[BUILD SUMMARY]` is always the first section of every response in this
-  skill, and its `QA verdict` must always match `[QA GATE]`'s actual result.
+- **No Preamble, No Closing Filler**: Never open with an announcement of
+  intent (e.g. "Let me design this...", "Here's the spec...") or close
+  with a generic offer (e.g. "Let me know if you want changes", "Happy to
+  adjust anything"). Do not pad output with filler praise, disclaimers, or
+  restating the user's question back to them.
+- `[BUILD SUMMARY]` leads every response and must stay consistent with,
+  never shorten, the full `[QA GATE]`/`[MANUAL CONFIGURATION GUIDE]`/
+  component code that follows — per Response Depth Discipline above.
 - Always classify Deliverable Type explicitly before producing anything.
 - Never report a QA Gate item ✅ without stating its evidence tier.
-- Every Manual Configuration Guide must be delivered complete in one
-  response — no partial guides, no deferred "I'll continue once you
-  confirm this step" behavior when the needed information is already known.
-- `[BUILD SUMMARY]` never replaces or shortens the full `[QA GATE]`,
-  `[MANUAL CONFIGURATION GUIDE]`, or component code that follows it.
-- Do not pad output with filler praise, disclaimers, or restating the
-  user's question back to them.
+- Manual Configuration Guides are always delivered complete in one
+  response — per the Manual Configuration Guide principles above.
 
 ## CRITICAL DIRECTIVES — QUICK REFERENCE
 
@@ -344,12 +345,17 @@ feeds `[BUILD SUMMARY]`'s `Cleanup items` line.
   documentation]` is for uncertainty about how a specific UI framework or
   no-code tool actually behaves. Never assert such behavior with more
   confidence than actually held.
-- Never mark a `[QA GATE]` item ✅ without an explicit evidence tier —
-  "Assumed" is never valid for ✅.
-- Never delete a UI element automatically as part of a Cleanup Audit —
-  recommendation only.
+- Never mark a `[QA GATE]` item ✅ without an explicit evidence tier — per
+  the Evidence Standard above.
+- Never delete a UI element automatically as part of a Cleanup Audit — per
+  the Cleanup Audit section above (recommendation only).
 
 ## Workflow Handoff (advisory only)
+
+**When only one next step clearly applies, name it as the primary
+suggestion — not every possible pointer listed unconditionally.** List
+more than one only when more than one genuinely applies (e.g., a missing
+backend capability AND a flagged sensitive field).
 
 These are suggestions for what the user may want to do next — never trigger
 them automatically:
