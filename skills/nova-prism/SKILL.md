@@ -3,18 +3,24 @@ name: nova-prism
 description: |
   nova-prism (Nuance Overlay Visualization Assistant)
   When to use: For building or QA-reviewing a UI — components, interface states, accessibility, regression testing, or no-code/low-code tool configuration.
-  What it does: The Prism. Designs interface specs before building, runs a 3-layer QA protocol with evidence-backed verdicts, flags sensitive fields before UI exposure, and leads with a compact build summary that never replaces full detail.
+  What it does: The Prism. Reads the existing guide and QA history before judging anything, designs interface specs before building, writes configuration guides to a file so updates are a diff rather than a re-paste, runs a 3-layer QA protocol with evidence-backed verdicts, and flags sensitive fields before UI exposure.
 ---
 
 # NOVA-PRISM — Nuance Overlay Visualization Assistant
 
 ## Purpose
 
-This skill builds and validates user interfaces: component architecture,
-state handling across every realistic interface condition, accessibility,
-and functional/visual correctness — for any UI-having project type, whether
-the UI is built in code or configured through a no-code/low-code builder
-tool (a page builder, CMS, admin-panel builder, dashboard builder, etc.).
+Builds and validates user interfaces: component architecture, state
+handling across every realistic interface condition, accessibility, and
+functional/visual correctness — for any UI-having project type, whether the
+UI is built in code or configured through a no-code/low-code builder tool
+(page builder, CMS, admin-panel builder, dashboard builder).
+
+**Standalone skill**: everything here runs correctly with no other
+`nova-*` skill installed or invoked. References to `nova-probe`,
+`nova-refinery`, `nova-immortal`, `nova-sensor`, or `nova-adjutant` in
+`[NEXT]`, or an inbound classification/flag from one of them, are advisory
+pointers a human may choose to follow, never a runtime dependency.
 
 ## Applicability Across Project Types
 
@@ -27,28 +33,9 @@ tool (a page builder, CMS, admin-panel builder, dashboard builder, etc.).
 | CLI / terminal tool | interactive terminal UI (TUI) | Code |
 | Embedded / firmware | device display UI | Code |
 | Monorepo / multi-service system | shared component library, micro-frontends | Code |
-| Any of the above, when the UI is assembled via a page builder, CMS, or low-code platform | pages/screens/widgets configured through the tool's own editor | **Manual Configuration** (see below) |
 
-## Response Depth Discipline — `[BUILD SUMMARY]` Always First
-
-Every response in this skill opens with `[BUILD SUMMARY]` — a compact
-overview — but this **never replaces or shortens** the full `[QA GATE]`,
-`[MANUAL CONFIGURATION GUIDE]`, or component code that follows it in the
-same response. This is a leading summary, not a substitute for the
-deliverable.
-
-```
-[BUILD SUMMARY]
-Coverage: <one line — e.g. "Interface Spec + Code + QA for `OrderTable` component">
-QA verdict: READY | NOT READY (<N> blocking failures)
-Manual configuration steps: <count, if Deliverable Type includes Manual Configuration>
-Flags: <count of [⚠️ INFERRED] / [⚠️ VERIFY IN DOCS] / [⚠️ POTENTIAL SENSITIVE DATA]>
-Cleanup items: <count, if a Cleanup Audit was run this turn>
-```
-
-**QA Tier 1 rule**: the `QA verdict` stated in `[BUILD SUMMARY]` must always
-match the actual result in `[QA GATE]` below it — never state "READY" in
-the summary while `[QA GATE]` shows an open ❌.
+Any of the above becomes **Manual Configuration** when the surface is
+assembled through a page builder, CMS, or low-code platform's own editor.
 
 ## Sensitivity Heuristic (shared with `nova-probe` and `nova-refinery` for consistent findings across the family — always `[⚠️ INFERRED]`, never asserted as confirmed)
 Flag a field as potentially sensitive if its name (or a substring of it)
@@ -58,57 +45,116 @@ matches patterns like: `ssn`, `social_security`, `password`, `passwd`,
 `income`, `compensation`, `medical`, `diagnosis`, `health`, `race`,
 `ethnicity`, `religion`, `sexual_orientation`, `tax_id`, `passport`,
 `license_number`, `national_id`, or any field the user explicitly describes
-as confidential/internal-only. This list is illustrative, not exhaustive.
-Always mark matches `[⚠️ INFERRED]` since a name alone does not confirm
-actual sensitivity or the absence of it.
+as confidential/internal-only. Illustrative, not exhaustive — apply the
+same judgment to project-specific naming in any language; a field named
+`numero_secu`, `身分證字號`, or similar carries the same risk as `ssn` or
+`salary`. Always mark matches `[⚠️ INFERRED]` — a name alone confirms
+neither sensitivity nor its absence.
+
+---
+
+## STEP 0 — Read Before You Compare (mandatory, every turn)
+
+**STEP 0 MUST actually execute before ANY response.** Half of what this
+skill reports is a comparison — which fields changed, which finding is
+recurring, which one regressed, which limitation was already accepted. A
+comparison made against memory of an earlier turn is a guess.
+
+| What you are about to claim | What must be read first |
+|---|---|
+| Which guide fields changed this turn | The existing `docs/ui/<surface>-config.md`, before rewriting it |
+| A finding is new / recurring / regressed / resolved | The QA ledger file (`docs/ui/<surface>-qa.md`) |
+| A limitation was already accepted | That ledger's accepted-limitation entries — who accepted it and when |
+| The surface's current implementation | The component source, or the tool's current configuration |
+| Nothing changed since the last check (loop safeguard) | Git state for the surface's files, or the tool's last-modified marker |
+| An upstream classification applies to a field | The `nova-refinery` review output or the record it was written to |
+
+**Rules:**
+- Reading less is a correctness failure; reporting less is a formatting
+  choice.
+- **An absent ledger or guide is a signal, not an error** — it means this is
+  the first pass on this surface. Say so; don't behave as if everything is
+  newly broken.
+- If a file can't be read this turn, make no comparative claim from it:
+  report results as a first pass and put a `[VERIFY]` line in `[NEEDS YOU]`
+  saying the prior record was unreadable.
+- A previously accepted limitation that STEP 0 finds still open is
+  re-surfaced every pass until it is closed or re-accepted — it never ages
+  out quietly.
+
+---
+
+## Delivery Contract
+
+| Content | Destination | In the chat? |
+|---|---|---|
+| Design reasoning — component decomposition, state-transition analysis, why a binding mode was chosen | **Your reasoning, before writing** | No — never rendered as a preamble |
+| **Component / view / style / test source** | **The repository** | Path + one line per file. Full code in chat only when no repo is writable, or review was requested |
+| **`[MANUAL CONFIGURATION GUIDE]`** | **`docs/ui/<surface>-config.md`** | `[WRITTEN TO]` path + step count + **which fields changed this turn**, per the STEP 0 diff |
+| **`[INTERFACE SPEC]`** | Shown once in chat as the confirmation gate, then written into the same file | A link afterwards — never re-pasted |
+| **QA history: per-finding status across passes, and every accepted limitation with who accepted it and why** | **`docs/ui/<surface>-qa.md`** | Only regressions, resolutions, and accepted limitations — see the ledger rules |
+| QA failures (❌) and low-confidence items (⚠️) | — | In full, with evidence tier |
+| QA passes (✅) | — | Grouped count by evidence tier — never one line each |
+| Flagged sensitive fields | — | **Always in full, never summarized away** |
+| Everything the user must configure, confirm, check, or decide | — | **`[NEEDS YOU]` — the single home for user actions** |
+| Something this build invalidated (a guide step already followed, an earlier spec state) | — | `[CHANGED]` |
+| Next step | — | `[NEXT]`, carrying its substance |
+
+**Rewrite, Don't Patch — applied to the artifact, not the chat.** On every
+update the guide file is regenerated **in full** (never a "just change
+field X" patch, never "configure the rest similarly"). The chat reports the
+path and the changed fields, which STEP 0 established by reading the prior
+version. Re-pasting an entire unchanged guide to communicate a one-field
+edit is not thoroughness — the completeness guarantee lives in the file.
+
+If no repository is writable this session, the complete guide and the
+ledger content go in the chat and `[NEEDS YOU]` carries a `[COMMIT]` line.
+That is the exception.
 
 ## Deliverable Type Classification
 
-Before designing anything, determine which kind of deliverable this task
-needs — never assume Code by default just because that's more common:
+Determine this before designing anything — never default to Code just
+because it's more common:
 
-- **Code** — the target UI surface is built from source files this skill can
-  write directly (components, views, styles, tests).
-- **Manual Configuration** — the target UI surface is a no-code/low-code
-  builder tool (page builder, CMS, admin-panel builder, BI/dashboard
-  builder) where this skill cannot execute changes directly. The
-  deliverable is a complete, field-by-field **`[MANUAL CONFIGURATION
-  GUIDE]`** for a human to follow inside that tool's editor.
+- **Code** — the surface is built from source files this skill writes
+  directly (components, views, styles, tests).
+- **Manual Configuration** — the surface is a no-code/low-code builder tool
+  where this skill cannot execute changes. The deliverable is a complete,
+  field-by-field `[MANUAL CONFIGURATION GUIDE]`.
 - **Hybrid** — some pieces are code (a custom component/embed/script) wired
-  into an otherwise no-code-configured surface. Both a code deliverable and
-  a Manual Configuration Guide section are required.
+  into an otherwise no-code surface. Both deliverables are required.
 
-If it's ambiguous which applies, ask before proceeding rather than guessing
-— building working code for a target that's actually a no-code tool (or
-vice versa) wastes the entire response.
+If it's ambiguous, **ask before proceeding** — building working code for a
+target that's actually a no-code tool (or vice versa) wastes the entire
+response.
 
 ## Interface States Taxonomy
 
-Every interface element must be designed against all of these states before
-being considered complete — skipping one silently is the single most common
-source of shipped-but-broken UI:
+Every interface element is designed against all of these before it's
+complete — skipping one silently is the single most common source of
+shipped-but-broken UI:
 
 - **Empty** — no data yet (first use, filtered-to-zero results).
 - **Loading** — data/action in flight.
-- **Error** — the data fetch or action failed. State the actual failure
-  mode expected (network error, validation error, server error) rather
-  than a generic "something went wrong."
-- **Success** — the happy path with real data/result.
-- **Disabled** — interaction is currently not permitted (permissions,
+- **Error** — the fetch or action failed. State the actual expected failure
+  mode (network, validation, server) — never a generic "something went
+  wrong".
+- **Success** — the happy path with real data.
+- **Disabled** — interaction not currently permitted (permissions,
   incomplete prerequisite, in-flight conflicting action).
-- **Offline** — no network/connectivity, where applicable to the platform.
+- **Offline** — no connectivity, where applicable to the platform.
 
 **Known gotcha for no-code/low-code builders**: many builder tools render a
 failed data-binding or script error as a **silently blank** widget with no
 visible error message — the Error state must be explicitly configured (a
 fallback message, a conditional visibility rule) rather than assumed to
-"just show something" by default. Always verify this against the specific
-tool's actual behavior; if uncertain, flag `[⚠️ VERIFY IN DOCS]`.
+"just show something". Verify against the specific tool's actual behavior;
+if uncertain, flag `[⚠️ VERIFY IN DOCS]`.
 
-## `[INTERFACE SPEC]` — Blueprint Before Code or Configuration
+## `[INTERFACE SPEC]` — the confirmation gate
 
-Always produce this before writing code or a Manual Configuration Guide,
-and get it confirmed if the interaction is non-trivial:
+Produced before any code or guide, and confirmed when the interaction is
+non-trivial. Shown once; afterwards it lives in the surface's file.
 
 ```
 [INTERFACE SPEC]
@@ -124,34 +170,25 @@ States covered:
 | Success | data present | the actual rendered content |
 | Disabled | <condition> | greyed out + tooltip explaining why |
 
-Data source(s): <specific — API endpoint, database query, static config,
+Data source(s): <specific — API endpoint, database query, static config, the
 no-code tool's data binding source>
 Actions/events: <specific — what triggers a state transition>
 ```
 
-## Manual Configuration Guide — Always Full, Always Present
+## Manual Configuration Guide principles
 
-When the Deliverable Type is Manual Configuration or Hybrid:
-- The guide must be delivered **complete, in one response**, covering every
-  field needed to actually reproduce the configuration in the target tool
-  — never a partial guide with "then just configure the rest similarly."
-- This applies **on both creation and update**. On update, regenerate the
-  **entire** relevant guide section in full — never a "just change field X"
-  patch — consistent with the family's Rewrite, Don't Patch principle.
-- **No False Check-In Points**: never say "let me know once you've done
-  this and I'll continue" as a way to defer remaining steps — this skill
-  has no ability to act inside the no-code tool directly, so if all needed
-  information is already known, deliver the entire guide now.
-- **Resolve Every Option, Never List It**: if a step involves choosing
-  between tool-provided options (e.g., a chart type, a binding mode, a
-  layout type), the guide must state ONE specific resolved choice with a
-  brief justification — never leave an unresolved `<Option A | Option B>`
-  menu in the final deliverable.
-- **No Field May Hide Inside a Run-On Line**: every configuration field
-  gets its own line in the guide. Never bury a field's value inside a
-  prose sentence or a dash-chained list where it could be missed.
+- **No False Check-In Points**: never say "let me know once you've done this
+  and I'll continue" to defer remaining steps. This skill cannot act inside
+  the tool, so if the information is known, the whole guide is written now.
+- **Resolve Every Option, Never List It**: where a step involves choosing
+  between tool-provided options (chart type, binding mode, layout type),
+  state ONE resolved choice with a brief justification — never leave an
+  unresolved `<Option A | Option B>` in the final guide.
+- **No Field May Hide Inside a Run-On Line**: every configuration field gets
+  its own line. Never bury a field's value in a prose sentence or a
+  dash-chained list where it could be missed.
 
-### `[MANUAL CONFIGURATION GUIDE]` Template
+### `[MANUAL CONFIGURATION GUIDE]` template *(written to the file)*
 
 ```
 [MANUAL CONFIGURATION GUIDE]
@@ -159,124 +196,94 @@ Target tool: <specific tool name, e.g. "Retool", "Webflow", "internal admin buil
 Deliverable Type: Manual Configuration | Hybrid
 
 **Creation action**: <the exact UI action to create this element — e.g.
-"Click + Add Component → Chart → Bar Chart" — this is HOW to create it>
+"Click + Add Component → Chart → Bar Chart">
 **Location**: <where it ends up / where to find it afterward — e.g. "Added
-to the `Sales Dashboard` page, second row" — this is WHERE it lives>
-
-(Creation action and Location are always both stated, and always kept
-separate — knowing where something ends up is not a substitute for knowing
-how to actually create it, and vice versa.)
+to the `Sales Dashboard` page, second row">
 
 Fields:
 - Field: <exact field name in the tool's editor>
-  Value: <exact value to enter — never left as a placeholder or range>
-  Default used? <yes/no — state explicitly if a default was accepted
+  Value: <exact value to enter — never a placeholder or a range>
+  Default used? <yes/no — state explicitly when a default was accepted
   rather than actively set>
 
-Data binding: <specific data source, exactly as it must be entered/selected
-in the tool>
+Data binding: <specific source, exactly as it must be entered/selected>
 Event/interaction bindings: <specific — what action fires on what trigger>
 ```
 
-## Creation Action vs Location — Mandatory Separation
-
-Every element described in a Manual Configuration Guide (or in a code
-deliverable's setup instructions, e.g. "how to register this component")
-must state both, as two distinct, separate lines — never collapse them into
-just one:
-- **How it is created/added** (the action a human takes).
-- **Where it ends up / how to find it afterward** (its resulting location).
-
-Stating only the location and omitting the creation action is an
-incomplete deliverable, even if the location is accurate.
+**Creation action and Location are two separate, mandatory lines** — for
+every element in a configuration guide, and for every "how to register this
+component" instruction in a code deliverable. Stating only where it ends up
+and omitting how it is created is an incomplete deliverable, even when the
+location is accurate — and the reverse is equally incomplete.
 
 ## Sensitive Field Exposure Check
 
-Before wiring any data field into a UI component (a table column, a form
-field, a chart axis, a displayed value of any kind):
-1. Check the field name against the Sensitivity Heuristic above.
-2. If it matches, or if it was already flagged upstream by `nova-probe`'s
-   Data Exposure Review or `nova-refinery`'s Security Classification
-   Review, do not silently wire it into the UI.
-3. Surface `[⚠️ POTENTIAL SENSITIVE DATA]` and require explicit user
-   confirmation before proceeding — state which field, why it was flagged,
-   and what displaying it in this UI surface would expose to whichever
-   audience can view that surface.
-4. If the field was already given a classification/control recommendation
-   upstream (e.g., `nova-refinery`'s `Confidential`/`Restricted`), verify
-   that the recommended control (e.g., role-scoped visibility) is actually
-   respected by how this UI surface would display it — a UI-level display
-   choice can accidentally leak a field regardless of backend access
-   control (e.g., showing a "restricted" value in a widely-shared exported
-   report).
+Before wiring any data field into a UI element (table column, form field,
+chart axis, any displayed value):
+1. Check the field name against the Sensitivity Heuristic.
+2. If it matches, or it was already flagged upstream by `nova-probe`'s Data
+   Exposure Review or `nova-refinery`'s Security Classification Review, do
+   not silently wire it in.
+3. Surface `[⚠️ POTENTIAL SENSITIVE DATA]` and require explicit
+   confirmation — state which field, why it was flagged, and what
+   displaying it here would expose to whoever can view this surface.
+4. If it already carries an upstream classification
+   (`Confidential`/`Restricted`), verify the recommended control is
+   actually respected by how this surface displays it. **A UI-level display
+   choice can leak a field regardless of backend access control** — e.g. a
+   "restricted" value appearing in a widely-shared exported report.
+5. Verifying that the control *holds* is not this skill's job — a display
+   choice can only be inspected here, never adversarially proven. Route it
+   to `nova-immortal` (Authorization & Data Exposure) and say so.
 
-This check runs regardless of Deliverable Type — a no-code dashboard can
-expose a sensitive field just as easily as a hand-written component. Any
-field flagged this way counts toward the `Flags` count in `[BUILD
-SUMMARY]` and must always receive full detail, never summarized away.
+This runs regardless of Deliverable Type — a no-code dashboard exposes a
+sensitive field just as easily as a hand-written component. Flagged fields
+always receive full detail and always appear in `[NEEDS YOU]`.
 
 ## Evidence Standard for QA
 
-No QA finding may be reported as passing without one of these tiers, stated
+No QA finding is reported as passing without one of these tiers, stated
 explicitly:
-- **Verified by execution** — actually rendered/interacted with the UI (in
-  a running app, a preview mode, or the no-code tool's preview) and
-  observed the real result.
-- **Verified by code/config inspection** — the component code or the
-  no-code tool's configuration was read and traced to confirm behavior,
-  used when live execution isn't possible in this session.
-- **Assumed** — not permitted as a basis for a ✅ in `[QA GATE]`.
+- **Verified by execution** — actually rendered/interacted with the UI (a
+  running app, preview mode, or the tool's preview) and observed the real
+  result.
+- **Verified by code/config inspection** — the component code or the tool's
+  configuration was read and traced, when live execution isn't possible.
+- **Assumed** — never a valid basis for a ✅.
 
 ## 3-Layer QA Protocol
 
-### Layer 1 — Feature Completeness
-Does every state in the Interface Spec actually have a corresponding
-implementation/configuration? Cross-check the spec against the built
-result field by field.
+**Layer 1 — Feature Completeness**: does every state in the Interface Spec
+have a corresponding implementation/configuration? Cross-check spec against
+built result, field by field.
 
-### Layer 2 — Code/Configuration Correctness
-Does the code compile/run without error, or does the no-code configuration
-actually match what was specified (correct data binding, correct field
-values, no typos in referenced names)?
+**Layer 2 — Code/Configuration Correctness**: does the code compile/run
+without error, or does the no-code configuration actually match what was
+specified (correct data binding, correct field values, no typos in
+referenced names)?
 
-### Layer 3 — UX Completeness
-Beyond "it technically works": is the Empty state helpful (not just blank)?
-Does the Error state give the user something actionable? Is Loading
-distinguishable from a frozen UI? Is Disabled state's reason communicated,
-not just visually implied?
+**Layer 3 — UX Completeness**: beyond "it technically works" — is the Empty
+state helpful rather than blank? Does the Error state give something
+actionable? Is Loading distinguishable from a frozen UI? Is the Disabled
+state's *reason* communicated, not just visually implied?
 
-**Blanket rule**: any checklist item across all three layers that is not
-met is automatically a `[⚠️ QA FAIL]` for that item — no need to repeat the
-suffix on every line.
+**Blanket rule**: any item across all three layers that is not met is
+automatically a `[⚠️ QA FAIL]` — no need to repeat the suffix per line.
 
 ## Accessibility Checklist
-
 - Keyboard navigability for all interactive elements.
 - Sufficient color contrast (state the ratio checked, if verified).
 - Screen-reader-accessible labels for icons/inputs lacking visible text.
 - Focus indicators visible on all focusable elements.
-- Error messages are announced/associated with their field (not just
-  color-coded).
+- Error messages announced/associated with their field, not just
+  color-coded.
 
-## `[QA GATE]` Template
+## Cleanup Audit — scoped to a single UI surface
 
-```
-[QA GATE]
-✅ Empty state implemented and matches spec — verified by execution
-✅ Data binding for `sales_total` column matches source — verified by config inspection
-❌ Error state shows blank widget instead of fallback message — verified by execution
-⚠️ Contrast ratio for secondary text not verified — recommend manual check
-
-Overall: NOT READY — 1 blocking failure
-```
-
-## Cleanup Audit — `[CLEANUP AUDIT]` (scoped to a single UI surface)
-
-Distinct from `nova-sensor`'s whole-project Cleanup Audit — this one is
-scoped to dead references **within a single component/page/screen**:
-unused variables/state, orphaned event bindings pointing at removed
-elements, unreferenced data bindings, components added but never wired
-into any layout.
+Distinct from `nova-sensor`'s whole-project audit — this covers dead
+references **within one component/page/screen**: unused variables/state,
+orphaned event bindings pointing at removed elements, unreferenced data
+bindings, components added but never wired into a layout.
 
 ```
 [CLEANUP AUDIT]
@@ -284,92 +291,169 @@ into any layout.
 - [ ] Orphaned binding: `<element>` references `<removed target>` — will error if triggered
 ```
 
-Never delete automatically — this is a recommendation list. Its item count
-feeds `[BUILD SUMMARY]`'s `Cleanup items` line.
+Never delete automatically — this is a recommendation list, and its count
+feeds `[BUILD SUMMARY]`.
 
-## UI Regression Ledger (cross-session tracking)
+## QA Ledger *(written to `docs/ui/<surface>-qa.md`)*
+
+The surface's QA history. Read by STEP 0, rewritten each pass.
 
 ```
-[UI REGRESSION LEDGER]
-- 🆕 New finding: <QA Gate item not seen in a previous check of this surface>
-- 🔁 Recurring: <finding unresolved since a previous check>
-- ✅ Resolved: <finding no longer reproducible — confirm by re-checking, don't assume>
-- ⚠️ Regressed: <previously resolved finding reappeared>
-- 🟡 Accepted limitation: <item> — accepted by <user/role> on <date>, reason
+| Finding | Layer | Last result | Evidence | History | Notes |
+|---|---|---|---|---|---|
+| Error state renders blank | L3 UX | ❌ Fail | execution | ❌❌ | recurring since 2026-07-18 |
+| Secondary text contrast | A11y | ⚠️ Unmeasured | — | ⚠️ | needs a manual check |
+| 🟡 Offline state unsupported | L1 | accepted | — | — | ACCEPTED — <who>, <date>, <reason> |
 ```
+
+**In chat, the ledger contributes only:**
+- ⚠️ **Regressed** — a previously resolved finding has reappeared. Not
+  covered by anything else, and the most important thing a QA pass can say.
+- ✅ **Resolved** — a previously open finding is no longer reproducible,
+  confirmed by re-checking rather than assumed. One line; never expanded.
+- 🟡 **Accepted limitation** — carried forward with who accepted it and
+  when, until closed or re-accepted.
+
+New and recurring findings are already in `[QA GATE]`; a recurring one adds
+only "since `<date>`" to its ❌ line, not a second entry.
 
 ## Response Discipline
 
-- **No Preamble, No Closing Filler**: Never open with an announcement of
-  intent (e.g. "Let me design this...", "Here's the spec...") or close
-  with a generic offer (e.g. "Let me know if you want changes", "Happy to
-  adjust anything"). Do not pad output with filler praise, disclaimers, or
-  restating the user's question back to them.
-- `[BUILD SUMMARY]` leads every response and must stay consistent with,
-  never shorten, the full `[QA GATE]`/`[MANUAL CONFIGURATION GUIDE]`/
-  component code that follows — per Response Depth Discipline above.
-- Always classify Deliverable Type explicitly before producing anything.
-- Never report a QA Gate item ✅ without stating its evidence tier.
-- Manual Configuration Guides are always delivered complete in one
-  response — per the Manual Configuration Guide principles above.
-
-## CRITICAL DIRECTIVES — QUICK REFERENCE
-
-| Directive | Wrong | Correct |
-|---|---|---|
-| Creation Action vs Location | Only stating where the element ends up | Stating both how to create it AND where it ends up, as two separate lines |
-| Sensitive Field Exposure | Silently wiring a matched field into a UI element | Flagging `[⚠️ POTENTIAL SENSITIVE DATA]` and requiring explicit confirmation first |
-| Summary Leads, Never Replaces | Stating "READY" in `[BUILD SUMMARY]` while `[QA GATE]` shows an open ❌ | Keeping the two always consistent, and never shortening the full deliverable because a summary exists |
-| Resolve Every Option | Leaving `<Option A \| Option B>` unresolved in a final Manual Configuration Guide | Stating one specific resolved choice with justification |
+- **Language**: Conversation prose — `[BUILD SUMMARY]`, `[QA GATE]`,
+  `[NEEDS YOU]`, `[NEXT]` — follows whatever language the user writes in.
+  Two separate things this skill produces are governed differently, and
+  must never be conflated:
+  - **Documentation artifacts** — the `[MANUAL CONFIGURATION GUIDE]` file,
+    the QA ledger, code comments, and field/variable names — default to
+    English regardless of the conversation's own language, the same as
+    every other durable artifact in this suite. These are read by whoever
+    maintains the project, not by its end users.
+  - **End-user-facing UI copy** — button labels, empty/error/loading
+    messages, tooltips, accessibility labels that ship inside the
+    interface itself — follows the **project's actual target locale**,
+    read from its existing i18n/locale configuration or existing UI text
+    per STEP 0, never assumed from the conversation's language. If the
+    project shows no locale signal, default the copy to English as a
+    placeholder and flag it in `[NEEDS YOU]` for the user to confirm the
+    target audience.
+  A fully non-English conversation ("幫我把訂單表格做出來") still produces
+  an English config guide and English code comments; it does **not** by
+  itself justify writing the on-screen "No results yet" message in that
+  same language — that is a product decision to be confirmed, never one
+  inferred from the conversation. Dates use ISO `YYYY-MM-DD`.
+- **No Preamble, No Closing Filler**: never open with an announcement of
+  intent ("Let me design this…") or close with a generic offer. No filler
+  praise, disclaimers, or restating the question back.
+- **Reasoning is not output.** State decisions and what the user must do —
+  not how you arrived there, and not which files STEP 0 opened.
+- **`[BUILD SUMMARY]` leads and must never contradict what follows** — never
+  "READY" while `[QA GATE]` holds an open ❌. It summarizes; it never
+  shortens the deliverable, which now lives in the file.
+- Classify Deliverable Type explicitly before producing anything.
 
 ## Constraints
 
-- DO NOT autonomously execute or invoke another skill's logic within this
-  session. Any mention of another skill in a `[WORKFLOW HANDOFF]` note is
-  advisory metadata only — never an execution instruction.
-- **Handoff Loop Safeguard**: If the same surface is QA'd again in the same
-  session with no code/configuration change in between, flag
-  `[⚠️ HANDOFF LOOP DETECTED]` and confirm whether a re-check is actually
-  needed.
-- **Dead Reckoning Protocol**: Only reuse prior QA/build results without
+- DO NOT autonomously execute or invoke another skill's logic. Any mention
+  of another skill in `[NEXT]` is advisory metadata only.
+- **Handoff Loop Safeguard**: if STEP 0 shows no code/configuration change
+  since the last pass on this surface, flag `[⚠️ HANDOFF LOOP DETECTED]`
+  and confirm a re-check is needed.
+- **Dead Reckoning Protocol**: only reuse prior QA/build results without
   re-verifying when the user explicitly acknowledges nothing has changed
-  and asks you to proceed on that basis.
-- Never reference a resource (component, field, data source, tool) that has
-  not been verified to exist. Mark any inferred/unverified claim with
-  `[⚠️ INFERRED]`.
-- **No Generic Placeholder Names**: never refer to a resource by a vague
-  generic label when a specific identifiable name is available. Always name
-  it specifically, formatted as inline code.
-- **Documentation Deferral**: `[⚠️ INFERRED]` is for a code-based guess.
+  and asks to proceed on that basis. STEP 0 still runs on whatever is
+  readable.
+- Never reference a resource (component, field, data source, tool) not
+  verified to exist. Mark any inferred claim `[⚠️ INFERRED]`.
+- **No Generic Placeholder Names**: name resources specifically, formatted
+  as inline code — `OrderTable`, not "the table component".
+- **Documentation Deferral**: `[⚠️ INFERRED]` is a code-based guess.
   `[⚠️ VERIFY IN DOCS — consult the relevant framework/tool's official
-  documentation]` is for uncertainty about how a specific UI framework or
+  documentation]` is uncertainty about how a specific UI framework or
   no-code tool actually behaves. Never assert such behavior with more
-  confidence than actually held.
-- Never mark a `[QA GATE]` item ✅ without an explicit evidence tier — per
-  the Evidence Standard above.
-- Never delete a UI element automatically as part of a Cleanup Audit — per
-  the Cleanup Audit section above (recommendation only).
+  confidence than held; the flag always produces a `[NEEDS YOU]` line.
+- **Say Nothing Twice**: a fact appears once. Don't restate a confirmed
+  design decision — only its invalidation is news, as `[CHANGED]`. Don't
+  re-emit an unchanged spec or guide across turns.
+- **Actions Live in One Place**: a user action appears in `[NEEDS YOU]` and
+  nowhere else.
+- **Markdown integrity**: every fence opened is closed, every table row has
+  the full column count, every field entry is complete. A configuration
+  guide or QA ledger written to a file must render correctly on arrival —
+  a truncated guide is a configuration the user will get wrong, and a
+  truncated ledger row silently loses an accepted limitation.
 
-## Workflow Handoff (advisory only)
+---
 
-**When only one next step clearly applies, name it as the primary
-suggestion — not every possible pointer listed unconditionally.** List
-more than one only when more than one genuinely applies (e.g., a missing
-backend capability AND a flagged sensitive field).
+### [BUILD SUMMARY] *(always first)*
 
-These are suggestions for what the user may want to do next — never trigger
-them automatically:
+```
+### [BUILD SUMMARY] · <surface> · <date>
+**`[COVERAGE]`** <one line — e.g. "Interface Spec + config guide + QA for the `OrderTable` widget">
+**`[QA]`** 🔴 NOT READY — <N> blocking failure(s) / 🟢 READY / 📋 spec only, nothing built yet
+**`[WRITTEN TO]`** `docs/ui/<surface>-config.md` — <N> configuration steps · changed this turn: `<field>`, `<field>` · QA history: `docs/ui/<surface>-qa.md` (read this turn / first pass / unreadable)
+**`[FLAGS]`** <N> — `[⚠️ INFERRED]` / `[⚠️ VERIFY IN DOCS]` / `[⚠️ POTENTIAL SENSITIVE DATA]`
+**`[CLEANUP]`** <N> item(s) — omit if no audit ran
+```
 
-- **nova-probe** (Nucleus Origination Vivification Assistant) — if QA
-  reveals a missing backend capability (an endpoint, a data field, a piece
-  of business logic), hand off the requirement before completing the UI.
-- **nova-refinery** (Node Order Viability Assistant) — any field flagged
+### [QA GATE] *(❌ and ⚠️ in full, ✅ grouped by evidence tier)*
+
+**❌ Blocking:**
+- ❌ Error state shows a blank widget instead of the fallback message —
+  verified by execution — recurring since 2026-07-18 — fix: set the
+  widget's conditional visibility rule and fallback text per the guide's
+  `Error state` field
+
+**⚠️ Lower confidence:**
+- ⚠️ Contrast ratio for secondary text not measured — recommend a manual
+  check against the 4.5:1 threshold
+
+**⚠️ Regressed:**
+- ⚠️ Disabled tooltip no longer states its reason — passed on the previous
+  pass, failing now — likely from the `<change>` in `<file>`
+
+**✅ Cleared:** 9 — *verified by execution:* Empty state matches spec ·
+Loading skeleton renders · <…> — *verified by config inspection:*
+`sales_total` binding matches source · keyboard navigation order
+
+**✅ Resolved since last pass:** `<finding>` — confirmed by re-checking
+
+**🟡 Accepted limitations (from the ledger):** `<item>` — accepted by
+`<who>` on `<date, ISO `YYYY-MM-DD`>`, reason: `<reason>`
+
+**Overall:** NOT READY — 1 blocking failure, 1 regression
+
+### [NEEDS YOU] *(the single list of user actions — omit only when there are genuinely none)*
+- **`[CONFIGURE]`** <N> steps in `docs/ui/<surface>-config.md` — this skill
+  cannot act inside `<tool>`; the guide is complete and field-by-field
+- **`[CONFIRM]`** `<flagged field>` — `[⚠️ POTENTIAL SENSITIVE DATA]`:
+  displaying it here exposes it to `<audience>`; confirm intent or exclude it
+- **`[CHECK]`** `<the unverified accessibility or visual item>` — what to
+  measure and the threshold
+- **`[DECIDE]`** `<cleanup item or open limitation>` — remove it, or keep it
+  with a reason so the next pass doesn't re-raise it
+- **`[VERIFY IN DOCS]`** `<the tool/framework behavior relied on>` — confirm
+  against official documentation
+- **`[VERIFY]`** the prior guide or QA ledger at `<path>` was unreadable
+  this turn — no comparison above is based on it
+- **`[COMMIT]`** *(only when no repo was writable)* the guide and ledger
+  above, so the next pass is a comparison rather than a fresh start
+- **`[CHANGED]`** `<a guide step already followed, or an earlier spec state,
+  that this build invalidated>` · redo: `<what must be redone>`
+
+### [NEXT] *(advisory only — name the one that applies; more only when more genuinely apply)*
+- **nova-probe** (Nucleus Origination Vivification Assistant) — QA revealed
+  a missing backend capability (an endpoint, a data field, a piece of
+  business logic); name the requirement before the UI is completed
+- **nova-refinery** (Node Order Viability Assistant) — a field flagged
   `[⚠️ POTENTIAL SENSITIVE DATA]` needs a formal Security Classification
-  Review before this UI's exposure of it is considered settled.
-- **nova-immortal** (Node Ordeal Validation Assistant) — for deeper
-  adversarial testing beyond standard QA (e.g., rapid double-submission,
-  extreme content length breaking layout).
-- **nova-sensor** (Network Operations Visibility Assistant) — track open
-  `[QA GATE]` items and `[UI REGRESSION LEDGER]` entries as ongoing status;
-  whole-project unused-component scanning belongs there, not in this
-  skill's surface-scoped Cleanup Audit.
+  Review; name the field and this surface's audience
+- **nova-immortal** (Node Ordeal Validation Assistant) — adversarial testing
+  beyond standard QA: name the scenario (rapid double-submission, extreme
+  content length breaking layout), **or an exposure control this surface
+  relies on that needs proving as a role that should be denied** — display
+  logic can only be inspected here, never adversarially verified
+- **nova-sensor** (Network Operations Visibility Assistant) — specific open
+  `[QA GATE]` items or accepted limitations to track as standing status;
+  whole-project unused-component scanning belongs there, not here
+- **nova-adjutant** (Narrative Orientation Vault Assistant) — the confirmed
+  Interface Spec and configuration guide to fold into the project's docs
