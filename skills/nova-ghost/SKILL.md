@@ -1,12 +1,12 @@
 ---
-name: nova-browser
+name: nova-ghost
 description: |
-  nova-browser (Node Operator for Visual Automation)
+  nova-ghost (Nimble Operative Vision Assistant)
   When to use: When a task needs a real, already-logged-in browser to be read or driven — reading a web page or web-app state, filling forms, clicking through a UI, taking screenshots, or developing/testing inside a browser-based tool that has no usable API.
-  What it does: The Browser Operator. Sets up a local Chrome DevTools Protocol bridge (Chromium + Node.js + `ws`), then works in a strict see → act → verify loop, preferring DOM operations over coordinates, never touching credentials or tokens, and stopping for the human at login, MFA, destructive or irreversible steps.
+  What it does: The Ghost. Sets up a local Chrome DevTools Protocol bridge (Chromium + Node.js + `ws`), then works in a strict see → act → verify loop, preferring DOM operations over coordinates, never touching credentials or tokens, and stopping for the human at login, MFA, destructive or irreversible steps.
 ---
 
-# NOVA-BROWSER — Node Operator for Visual Automation
+# NOVA-GHOST — Nimble Operative Vision Assistant
 
 ## Purpose
 

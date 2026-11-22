@@ -62,7 +62,7 @@ git clone https://github.com/q0015300153/nova-skills.git
 | `nova-prism` | Nuance Overlay Visualization Assistant | 照明者：設計零死角的使用者介面，強制執行三層 QA（功能完整性、程式碼正確性、體驗完整性），確保交付時沒有已知的臭蟲。no-code/low-code 建構工具的 **完整手動設定指南**會寫入 `docs/ui/<surface>-config.md`，每次更新都在檔案裡整份重寫，對話只回報**改了哪幾個欄位**，絕不重貼。在任何欄位曝光到介面前執行 **敏感欄位檢查**，並明講：檢查顯示邏輯永遠證明不了控制真的有效。 |
 | `nova-immortal` | Node Ordeal Validation Assistant | 不朽者：設計並實際執行**八大類**極端測試案例，其中包含 **Authorization & Data Exposure**——用一個**應該被拒絕**的角色去索取受保護資料，並斷言該值**不存在於回應中**，而不只是在畫面上看不到，且必須走遍所有存取路徑（UI、API、匯出、日誌）。可自動化的案例會被提交為真正的測試檔，讓門檻可以重跑；門檻的當前狀態與每一筆已接受風險寫在 `docs/testing/GATE.md`。當回歸測試證實先前回報的臭蟲確實已修復時，正式記錄為 **`[FIX VALIDATED]`** 並交棒建檔。 |
 | `nova-adjutant` | Narrative Orientation Vault Assistant | 翻譯官：解讀混亂、難以理解的程式碼，轉譯為任何人都能讀懂的清晰文件、注釋與新人導覽指南——**寫進 repository，而不是貼在對話裡**。在宣稱文件過期之前，會同時重讀既有文件與它所描述的程式碼，讓過期的文件被明確標記而不是被默默覆蓋。新增 **事故記錄（Incident Record）**，把每次臭蟲修復的症狀、根因、修復方式、回歸測試與復發風險保存在 `INCIDENTS.md`，並在建檔前先確認這是不是某個已知根因的再次發作。 |
-| `nova-browser` | Node Operator for Visual Automation | 瀏覽器操作員：透過本機 Chrome DevTools Protocol 橋接，讓 AI 操作使用者已登入的 Chromium 瀏覽器，不需要 Selenium 或 Playwright。動手前先檢查橋接與目前登入的帳號，嚴格執行**看 → 做 → 驗**迴圈，優先用 DOM 操作而非座標，遇到登入、MFA 與任何不可逆步驟就把控制權交還給人，且絕不讀取 cookie 或權杖。內附 `scripts/cdp.mjs` 與安裝／疑難排解參考文件；適用於自動化、網頁介面開發與瀏覽器端測試。 |
+| `nova-ghost` | Nimble Operative Vision Assistant | 幽靈特務：透過本機 Chrome DevTools Protocol 橋接，讓 AI 操作使用者已登入的 Chromium 瀏覽器，不需要 Selenium 或 Playwright。動手前先檢查橋接與目前登入的帳號，嚴格執行**看 → 做 → 驗**迴圈，優先用 DOM 操作而非座標，遇到登入、MFA 與任何不可逆步驟就把控制權交還給人，且絕不讀取 cookie 或權杖。內附 `scripts/cdp.mjs` 與安裝／疑難排解參考文件；適用於自動化、網頁介面開發與瀏覽器端測試。 |
 
 ---
 
@@ -79,7 +79,7 @@ git clone https://github.com/q0015300153/nova-skills.git
 | `nova-immortal` | `docs/testing/GATE.md`——以及提交進版控的測試檔 |
 | `nova-prism` | `docs/ui/<surface>-config.md` · `docs/ui/<surface>-qa.md`——以及元件／樣式／測試原始碼 |
 | `nova-observer` | 不直接寫入——它的 `[LOCKED DECISIONS]` 交由 `nova-adjutant` 記錄為 ADR |
-| `nova-browser` | 不寫入——它負責操作瀏覽器；需要留下的紀錄交由 `nova-adjutant` |
+| `nova-ghost` | 不寫入——它負責操作瀏覽器；需要留下的紀錄交由 `nova-adjutant` |
 | `nova-sensor` | 不寫入，唯讀——它彙整上述所有檔案 |
 
 檔案不存在從來不是錯誤，只代表那個 Skill 還沒對這個專案跑過。
