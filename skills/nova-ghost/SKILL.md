@@ -15,6 +15,7 @@ Lets an AI assistant operate a browser the way a person would: through the user'
 **Standalone skill**: needs no other `nova-*` skill. References to other skills in `[NEXT]` are advisory pointers only.
 
 Supporting files (read when needed):
+- `scripts/ensure-browser.mjs` — detect-or-launch bootstrap (run first, every session).
 - `scripts/cdp.mjs` — the control script (eval, shot, click, type, key, scroll, dialog, navigate).
 - `references/setup-and-troubleshooting.md` — install steps, launch commands per OS, command cheat-sheet, pitfalls table.
 
@@ -22,9 +23,11 @@ Supporting files (read when needed):
 
 ## STEP 0 — Check the Bridge Before Acting (mandatory, every session)
 
-1. Is the debug port reachable? `curl -s http://127.0.0.1:9222/json/version`. If not, give the user the launch command from the reference file — **never launch against the user's everyday profile**; use a dedicated `--user-data-dir`.
-2. Is `cdp.mjs` present and `ws` installed (`node -v` ≥ 18)? If not, install per the reference file.
-3. List tabs: `curl -s http://127.0.0.1:9222/json`. Tab ids change when tabs close — re-list rather than reuse remembered ids.
+1. **Run the bootstrap — never ask the user to launch anything by hand:**
+   `node <skill-dir>/scripts/ensure-browser.mjs [startUrl]`
+   It installs `ws` if missing, detects a CDP browser on `127.0.0.1:9222` (`CDP_PORT` to change), and if none exists **launches a dedicated-profile Chrome/Edge/Chromium** (profile `~/.nova-ghost/profile-<port>`, never the user's everyday profile) and waits for the port. It prints JSON: `status` (`ready` | `launched` | `error`), browser, profile, tab list. On `error`, follow its `hint`.
+2. If `status` is `launched`, the profile is fresh: the **human** signs in to the sites needed (`[NEEDS YOU]`). Do not proceed on an unauthenticated page.
+3. Control the browser with `node <skill-dir>/scripts/cdp.mjs <command>` from here on (select a tab with `CDP_TAB=<id prefix>` or `CDP_MATCH=<url fragment>`). Tab ids change when tabs close — re-list rather than reuse remembered ids.
 4. Identify **which account/site** the target tab is signed into by screenshot or DOM read before any action. A wrong-account action is the costliest browser mistake.
 
 What STEP 0 reads is a fact about this machine now, not a memory from earlier in the conversation.
