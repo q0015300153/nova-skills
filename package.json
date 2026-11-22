@@ -1,7 +1,7 @@
 {
   "name": "nova-skills",
   "version": "1.0.0",
-  "description": "NOVA Skill Suite — 8 general-purpose development Skills for web, desktop, console, and RPA projects",
+  "description": "NOVA Skill Suite — 9 general-purpose development Skills for web, desktop, console, and RPA projects",
   "license": "MIT",
   "keywords": [
     "claude-code",
@@ -14,7 +14,9 @@
     "python",
     "vba",
     "power-automate",
-    "general-purpose"
+    "general-purpose",
+    "browser-automation",
+    "chrome-devtools-protocol"
   ],
   "files": [
     "skills/"
