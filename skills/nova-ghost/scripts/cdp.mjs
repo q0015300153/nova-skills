@@ -48,5 +48,6 @@ try {
     await Promise.race([send('Page.enable'), new Promise(r => setTimeout(r, 1500))]);
     console.log(JSON.stringify(await send('Page.handleJavaScriptDialog', { accept: args[0] !== 'dismiss' })));
   } else if (cmd === 'navigate') { await send('Page.navigate', { url: args[0] }); console.log('navigated'); }
+  else if (cmd === 'front') { await send('Page.bringToFront'); console.log('brought to front'); }  // 僅在需要時：把分頁/視窗切到最前面
   else console.error('未知指令', cmd);
 } finally { sock.close(); }

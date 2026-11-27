@@ -43,7 +43,7 @@ What STEP 0 reads is a fact about this machine now, not a memory from earlier in
 ### Rules
 
 - **Prefer DOM to coordinates.** Find an element by text with `eval` and call `.click()`. Use coordinates only for canvases or when the DOM is unreachable. Coordinates are CSS pixels = screenshot pixels ÷ `devicePixelRatio`.
-- **Bring the tab to the foreground** before input/screenshot (`/json/activate/<fullId>`); background tabs time out. Wrap calls in `timeout`.
+- **Stay in the background by default.** Do not steal the user's window focus. Only bring the browser to the front when needed — page content fails to load/render, a screenshot comes back blank/stale, input or reads time out, or a background tab is throttled. Use `node cdp.mjs front` (`Page.bringToFront`; raises the window and tab) or `/json/activate/<fullId>` (tab only), then retry. Wrap calls in `timeout`.
 - **Long or special-character text** goes through a file and `typefile`, never an inline shell string.
 - **Editors** (rich-text, code editors): click to focus, `selectall`, then `typefile`/`paste`. Content inside cross-origin iframes cannot be read with `eval`; use clicks and keys.
 - **A JavaScript dialog blocks every command** — `dialog accept|dismiss` first.

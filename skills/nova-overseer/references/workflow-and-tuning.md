@@ -54,14 +54,14 @@ Why it is cheap: comparison is against the *last kept* frame (so slow drift stil
 | Digits misread by OCR | confirm against the sheet before recording an ID |
 | Credentials visible on screen | never transcribe; write "credential entered" |
 | Two windows change at once → one huge crop | falls back to whole-screen tile automatically; lower `--thr` only if detail is lost |
-| Sheet files leak customer data | keep outputs in a temp folder; do not commit |
+| Sheet files leak customer data | outputs live in `docs/video-analysis/`; git-ignore it, do not commit |
 
 ## 6. Smoke test
 
 ```bash
 python <skill-dir>/scripts/overseer.py setup --ocr
 <venv-python> <skill-dir>/scripts/mkdemo.py demo.mp4
-python <skill-dir>/scripts/overseer.py analyze demo.mp4 out --ocr
+python <skill-dir>/scripts/overseer.py analyze demo.mp4   # -> docs/video-analysis/demo/
 ```
 
 Expected: 3 change moments (t≈0, 11, 21 s), 1 sheet, transcript lines `SAP Easy Access`, `Delivery 8001153201`, `Saved OK`.

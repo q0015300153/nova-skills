@@ -122,12 +122,13 @@ try {
     await Promise.race([send('Page.enable'), new Promise(r => setTimeout(r, 1500))]);
     console.log(JSON.stringify(await send('Page.handleJavaScriptDialog', { accept: args[0] !== 'dismiss' })));
   } else if (cmd === 'navigate') { await send('Page.navigate', { url: args[0] }); console.log('navigated'); }
+  else if (cmd === 'front') { await send('Page.bringToFront'); console.log('brought to front'); }  // 僅在需要時：把分頁/視窗切到最前面
   else console.error('未知指令', cmd);
 } finally { sock.close(); }
 ```
 
 開新分頁：`curl -s -X PUT "http://127.0.0.1:9222/json/new?https://example.com"`（部分版本用 GET）。
-切到前景：`curl -s http://127.0.0.1:9222/json/activate/<分頁完整id>`。
+切到前景（一般不需要，僅在內容無法載入／截圖空白／讀取逾時時使用）：`node cdp.mjs front`（`Page.bringToFront`，連視窗一起拉到最前），或 `curl -s http://127.0.0.1:9222/json/activate/<分頁完整id>`（只切分頁）。
 
 ## 7. 指令速查
 
@@ -143,6 +144,7 @@ try {
 | 滾動 | `node cdp.mjs scroll 400 400 600` |
 | 處理對話框 | `node cdp.mjs dialog accept` |
 | 前往網址 | `node cdp.mjs navigate https://example.com` |
+| 切到最前面（僅必要時） | `node cdp.mjs front` |
 
 ## 8. AI 標準工作迴圈
 
@@ -158,7 +160,7 @@ try {
 |---|---|
 | 點擊位置偏掉 | 截圖像素 ÷ `devicePixelRatio`（常見 1.25、2）才是 `click` 座標；用 `eval "devicePixelRatio"` 查 |
 | 截圖沒更新 | 腳本失敗時可能沿用舊檔；截圖前先 `rm` |
-| 指令逾時 | 分頁在背景：先 `activate`；加 `timeout 40` 避免卡死 |
+| 指令逾時／內容空白 | 分頁在背景被節流：先 `node cdp.mjs front`（或 `activate`）再重試；加 `timeout 40` 避免卡死 |
 | 點不到按鈕 | 優先用 DOM：`eval "[...document.querySelectorAll('button')].find(b=>b.textContent.includes('送出')).click()"` |
 | 輸入沒反應 | 先點欄位取得焦點；`selectall` 後再 `type`；React／Monaco 編輯器用 `typefile`／`paste` 較穩 |
 | 元素在 iframe | `eval` 只看得到同源 iframe；跨網域 iframe 改用座標點擊與 `key` |

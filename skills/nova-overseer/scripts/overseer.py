@@ -5,7 +5,13 @@ nova-overseer — token-cheap screen-recording analysis.
 Usage:
   python overseer.py setup [--ocr]              install dependencies into a private venv
   python overseer.py probe   <video>            duration / fps / size as JSON
-  python overseer.py analyze <video> <outdir> [--step 1] [--gap 4] [--thr 30] [--ocr]
+  python overseer.py analyze <video> [outdir] [--level quick|balanced|deep] [--force]
+                             [--step 1] [--gap 4] [--thr 30] [--ocr]
+      outdir defaults to <cwd>/docs/video-analysis/<video-name>/ (inside the project).
+      balanced (default) = step 1, gap 4, thr 30, OCR on.  quick = step 2, gap 6, thr 40, no OCR.
+      deep = step 0.5, gap 2, thr 20, OCR on.  An already-analyzed, unchanged video at the same
+      level is skipped (prints status "cached") unless --force is given.
+  python overseer.py audio   <video> [outdir]   extract the soundtrack to audio.mp3 (bundled ffmpeg)
   python overseer.py frames  <video> <outdir> [--thr 6] [--maxgap 10]   (fallback: full-frame keyframes)
 
 On first run the script creates ~/.nova-overseer/venv and re-executes itself there
@@ -23,13 +29,15 @@ HOME = Path(os.environ.get("NOVA_OVERSEER_HOME", Path.home() / ".nova-overseer")
 VENV = HOME / "venv"
 CORE = ["opencv-python-headless", "numpy", "pillow"]
 OCR = ["rapidocr-onnxruntime"]
+AUDIO = ["imageio-ffmpeg"]
+LEVELS = {"quick": (2.0, 6.0, 40.0, False), "balanced": (1.0, 4.0, 30.0, True), "deep": (0.5, 2.0, 20.0, True)}
 
 
 def venv_python() -> Path:
     return VENV / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
 
 
-def ensure_env(need_ocr: bool) -> None:
+def ensure_env(need_ocr: bool, need_audio: bool = False) -> None:
     """Create the venv if needed, install missing packages, then re-exec inside it."""
     if os.environ.get("NOVA_OVERSEER_IN_VENV") == "1":
         return
@@ -38,10 +46,10 @@ def ensure_env(need_ocr: bool) -> None:
         HOME.mkdir(parents=True, exist_ok=True)
         print("[overseer] creating venv:", VENV, file=sys.stderr)
         subprocess.run([sys.executable, "-m", "venv", str(VENV)], check=True)
-    mods = ["cv2", "numpy", "PIL"] + (["rapidocr_onnxruntime"] if need_ocr else [])
+    mods = ["cv2", "numpy", "PIL"] + (["rapidocr_onnxruntime"] if need_ocr else []) + (["imageio_ffmpeg"] if need_audio else [])
     probe = "import importlib.util as u,sys;sys.exit(0 if all(u.find_spec(m) for m in %r) else 1)" % (mods,)
     if subprocess.run([str(py), "-c", probe]).returncode != 0:
-        want = CORE + (OCR if need_ocr else [])
+        want = CORE + (OCR if need_ocr else []) + (AUDIO if need_audio else [])
         print("[overseer] installing:", " ".join(want), file=sys.stderr)
         subprocess.run([str(py), "-m", "pip", "install", "--quiet", "--disable-pip-version-check", *want], check=True)
     env = dict(os.environ, NOVA_OVERSEER_IN_VENV="1", PYTHONUTF8="1")
@@ -59,6 +67,28 @@ def opt(args, name, default):
         sys.exit(f"[overseer] {name} needs a number, e.g. {name} {default:g}")
 
 
+def default_out(video, out=None):
+    return Path(out) if out else Path.cwd() / "docs" / "video-analysis" / Path(video).stem
+
+
+def fingerprint(video):
+    st = os.stat(video)
+    return {"size": st.st_size, "mtime": int(st.st_mtime)}
+
+
+def cmd_audio(video, out):
+    out = default_out(video, out)
+    out.mkdir(parents=True, exist_ok=True)
+    import imageio_ffmpeg
+    dst = out / "audio.mp3"
+    r = subprocess.run([imageio_ffmpeg.get_ffmpeg_exe(), "-y", "-i", video, "-vn", "-ac", "1", "-b:a", "64k", str(dst)],
+                       capture_output=True, text=True)
+    ok = r.returncode == 0 and dst.exists()
+    print(json.dumps({"ok": ok, "audio": str(dst) if ok else None,
+                      "error": None if ok else (r.stderr or "")[-300:] + " (no audio track?)"}))
+    return 0 if ok else 1
+
+
 def cmd_probe(video):
     import cv2
     c = cv2.VideoCapture(video)
@@ -71,13 +101,24 @@ def cmd_probe(video):
     return 0
 
 
-def cmd_analyze(video, out, step, gap, thr, do_ocr):
+def cmd_analyze(video, out, step, gap, thr, do_ocr, level="custom", force=False):
     """Keep only the screen region that CHANGED, pack the crops into contact sheets,
     and (optionally) OCR every crop into transcript.md. Near-duplicate crops are dropped."""
     import cv2
     import numpy as np
-    out = Path(out)
+    out = default_out(video, out)
     out.mkdir(parents=True, exist_ok=True)
+    meta = out / "analysis.json"
+    fp = {**fingerprint(video), "level": level, "ocr": do_ocr, "step": step, "gap": gap, "thr": thr}
+    if meta.exists() and not force:
+        try:
+            old = json.loads(meta.read_text(encoding="utf-8"))
+        except ValueError:
+            old = {}
+        if all(old.get(k) == fp[k] for k in fp):
+            print(json.dumps({"ok": True, "status": "cached", "outdir": str(out),
+                              "hint": "already analyzed, video unchanged; read index.json / transcript.md, or pass --force"}))
+            return 0
     cap = cv2.VideoCapture(video)
     if not cap.isOpened():
         print(json.dumps({"ok": False, "error": "cannot open video"}))
@@ -178,11 +219,20 @@ def cmd_analyze(video, out, step, gap, thr, do_ocr):
         state["rowh"] = max(state["rowh"], h)
         state["members"].append(round(t))
     flush()
+    cdir = out / "crops"                                    # individual key crops for later, finer analysis
+    import shutil
+    shutil.rmtree(cdir, ignore_errors=True)                 # drop leftovers of a previous run
+    for old in list(out.glob("c[0-9][0-9].jpg")) + ([] if do_ocr else [out / "transcript.md"]):
+        old.unlink(missing_ok=True)
+    cdir.mkdir(exist_ok=True)
+    for t, im in crops:
+        cv2.imwrite(str(cdir / f"t{int(t):05d}s.jpg"), im, [cv2.IMWRITE_JPEG_QUALITY, 80])
     for i, s in enumerate(sheets):
         cv2.imwrite(str(out / f"c{i:02d}.jpg"), s, [cv2.IMWRITE_JPEG_QUALITY, 70])
-    summary = {"ok": True, "duration_s": round(dur), "change_moments": len(items), "dropped_duplicates": skipped,
+    summary = {"ok": True, "status": "analyzed", "level": level, "outdir": str(out), "duration_s": round(dur), "change_moments": len(items), "dropped_duplicates": skipped,
                "crops": len(crops), "sheets": [{"file": f"c{i:02d}.jpg", "times_s": m} for i, m in enumerate(index)],
                "transcript": str(out / "transcript.md") if do_ocr else None}
+    meta.write_text(json.dumps(fp), encoding="utf-8")
     (out / "index.json").write_text(json.dumps(summary, ensure_ascii=False, indent=1), encoding="utf-8")
     print(json.dumps(summary, ensure_ascii=False))
     return 0
@@ -221,15 +271,31 @@ def main(argv):
         print(__doc__)
         return 0
     cmd, args = argv[1], argv[2:]
-    ensure_env(need_ocr=("--ocr" in args))
+    level = args[args.index("--level") + 1] if "--level" in args and args.index("--level") + 1 < len(args) else "balanced"
+    if level not in LEVELS:
+        sys.exit("[overseer] --level must be quick, balanced or deep")
+    lstep, lgap, lthr, locr = LEVELS[level]
+    ocr = "--ocr" in args or (cmd == "analyze" and locr and "--no-ocr" not in args)
+    ensure_env(need_ocr=ocr, need_audio=(cmd == "audio"))
     if cmd == "setup":
         print(json.dumps({"ok": True, "venv": str(VENV), "ocr": "--ocr" in args}))
         return 0
     if cmd == "probe" and args:
         return cmd_probe(args[0])
-    if cmd == "analyze" and len(args) >= 2:
-        return cmd_analyze(args[0], args[1], opt(args, "--step", 1.0), opt(args, "--gap", 4.0),
-                           opt(args, "--thr", 30), "--ocr" in args)
+    pos = []
+    skip = False
+    for i, a in enumerate(args):
+        if skip:
+            skip = False
+        elif a in ("--step", "--gap", "--thr", "--level"):
+            skip = True
+        elif not a.startswith("--"):
+            pos.append(a)
+    if cmd == "audio" and pos:
+        return cmd_audio(pos[0], pos[1] if len(pos) > 1 else None)
+    if cmd == "analyze" and pos:
+        return cmd_analyze(pos[0], pos[1] if len(pos) > 1 else None, opt(args, "--step", lstep), opt(args, "--gap", lgap),
+                           opt(args, "--thr", lthr), ocr, level, "--force" in args)
     if cmd == "frames" and len(args) >= 2:
         return cmd_frames(args[0], args[1], opt(args, "--thr", 6.0), opt(args, "--maxgap", 10.0))
     print(__doc__)
