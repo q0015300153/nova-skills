@@ -1,6 +1,6 @@
 # NOVA Skill Suite — 核心起源活力助理 (Nucleus Origination Vitality Assistant)
 
-9 個專業化的 Claude Code Skill，涵蓋任何軟體專案的完整生命週期——從需求釐清、建置、程式碼審查、資料品質、測試驗證、介面設計，到日常的現況監控、臭蟲分診、跨資源清理、資料治理與文件撰寫。適用於網頁系統、GUI 軟體、伺服器、資料庫、終端機程式與嵌入式程式。每個 Skill 均為自包含設計，可獨立使用——沒有任何一個 Skill 需要另一個先被安裝。
+10 個專業化的 Claude Code Skill，涵蓋任何軟體專案的完整生命週期——從需求釐清、建置、程式碼審查、資料品質、測試驗證、介面設計，到日常的現況監控、臭蟲分診、跨資源清理、資料治理與文件撰寫，另外加上兩個讓 AI 處理「原本看不到的東西」的**感官**：即時瀏覽器（`nova-ghost`）與螢幕錄影（`nova-overseer`）。適用於網頁系統、GUI 軟體、伺服器、資料庫、終端機程式與嵌入式程式。每個 Skill 均為自包含設計，可獨立使用——沒有任何一個 Skill 需要另一個先被安裝。
 
 [English](./README.md) | **繁體中文**
 
@@ -9,6 +9,7 @@
 ## 使用前提
 
 - 已安裝 [Claude Code](https://claude.ai/code) CLI
+- *僅兩個附工具的 Skill 需要*（首次使用時自動安裝，不動全域環境）：`nova-ghost` 需 **Node.js 18+**；`nova-overseer` 需 **Python 3.9+**
 - 具備目標專案的存取權限（原始碼、資料庫、部署環境等，依任務而定）
 - 對軟體工程基本概念有基礎認識即可，**不需要任何特定平台或框架的專屬知識**——適用於任何技術棧
 
@@ -26,7 +27,7 @@ npx skills add github:q0015300153/nova-skills
 npx skills list
 ```
 
-應可在輸出中看到所有 9 個 `nova-*` Skill。
+應可在輸出中看到所有 10 個 `nova-*` Skill。
 
 **更新**至最新版本：
 
@@ -46,7 +47,7 @@ npx skills remove nova-skills
 git clone https://github.com/q0015300153/nova-skills.git
 ```
 
-然後將任意 `skills/<skill-name>/SKILL.md` 的內容貼入你慣用的 AI 助理系統提示詞設定中。
+請把整個 `skills/<skill-name>/` 資料夾（不只是 `SKILL.md`）複製到你的助理的 skills 目錄。五個 Skill 附有支援檔案：`nova-ghost` 與 `nova-overseer` 包含 `scripts/`（可自行安裝的工具）和 `references/`；`nova-adjutant`、`nova-sensor`、`nova-probe` 則在 `references/` 存放較長的範本或協定，按需讀取。只貼 `SKILL.md` 文字會導致這些 Skill 缺少所需檔案。其餘五個 Skill 為單一檔案即可使用。
 
 ---
 
@@ -63,6 +64,7 @@ git clone https://github.com/q0015300153/nova-skills.git
 | `nova-immortal` | Node Ordeal Validation Assistant | 不朽者：設計並實際執行**八大類**極端測試案例，其中包含 **Authorization & Data Exposure**——用一個**應該被拒絕**的角色去索取受保護資料，並斷言該值**不存在於回應中**，而不只是在畫面上看不到，且必須走遍所有存取路徑（UI、API、匯出、日誌）。可自動化的案例會被提交為真正的測試檔，讓門檻可以重跑；門檻的當前狀態與每一筆已接受風險寫在 `docs/testing/GATE.md`。當回歸測試證實先前回報的臭蟲確實已修復時，正式記錄為 **`[FIX VALIDATED]`** 並交棒建檔。 |
 | `nova-adjutant` | Narrative Orientation Vault Assistant | 翻譯官：解讀混亂、難以理解的程式碼，轉譯為任何人都能讀懂的清晰文件、注釋與新人導覽指南——**寫進 repository，而不是貼在對話裡**。在宣稱文件過期之前，會同時重讀既有文件與它所描述的程式碼，讓過期的文件被明確標記而不是被默默覆蓋。新增 **事故記錄（Incident Record）**，把每次臭蟲修復的症狀、根因、修復方式、回歸測試與復發風險保存在 `INCIDENTS.md`，並在建檔前先確認這是不是某個已知根因的再次發作。 |
 | `nova-ghost` | Nimble Operative Vision Assistant | 幽靈特務：透過本機 Chrome DevTools Protocol 橋接，讓 AI 操作使用者已登入的 Chromium 瀏覽器，不需要 Selenium 或 Playwright。動手前先檢查橋接與目前登入的帳號，嚴格執行**看 → 做 → 驗**迴圈，優先用 DOM 操作而非座標，遇到登入、MFA 與任何不可逆步驟就把控制權交還給人，且絕不讀取 cookie 或權杖。內附 `scripts/ensure-browser.mjs`（自動偵測或啟動專用除錯瀏覽器）與 `scripts/cdp.mjs` 與安裝／疑難排解參考文件；適用於自動化、網頁介面開發與瀏覽器端測試。 |
+| `nova-overseer` | Neural Observation Video Assistant | 監察官：讓 AI 以極少的 token 看懂**螢幕錄影**（示範、教學、錯誤重現、作業流程）。不逐秒抽整張畫面，而是只保留每個時刻**畫面上有變動的區域**、剔除近乎相同的裁切，拼成少數幾張總覽圖，並可選擇產出**去除重複文字的 OCR 逐字稿**——五分鐘的錄影只剩幾張圖與一份短文字。首次使用時自動安裝獨立工具鏈（`~/.nova-overseer` 私有 venv，不需管理員權限、不動全域環境）。先讀逐字稿再決定要不要開圖，每個結論都標註時間點，僅憑 OCR 的數字標 `[⚠️ OCR ONLY]`，且絕不抄錄畫面上出現的密碼、驗證碼或個人地址。內附 `scripts/overseer.py`、冒煙測試產生器與調參參考文件。 |
 
 ---
 
@@ -72,7 +74,7 @@ git clone https://github.com/q0015300153/nova-skills.git
 
 | Skill | 寫入位置 |
 |---|---|
-| `nova-adjutant` | `README.md` · `docs/<module>.md` · `docs/api/<name>.md` · `docs/adr/NNNN-<slug>.md` · `docs/runbooks/<name>.md` · `docs/ONBOARDING.md` · `INCIDENTS.md` · 原始碼內的 docstring |
+| `nova-adjutant` | `README.md` · `docs/<module>.md` · `docs/api/<name>.md` · `docs/adr/NNNN-<slug>.md` · `docs/runbooks/<name>.md` · `docs/ONBOARDING.md` · `docs/flows/<scope>.md` · `docs/user-guides/<scope>.md` · `INCIDENTS.md` · 原始碼內的 docstring |
 | `nova-probe` | `docs/build/<target>-blueprint.md`——以及生成的原始碼本身 |
 | `nova-refinery` | `docs/data/<target>-contract.md`——以及驗證／隔離邏輯所在的程式檔 |
 | `nova-raven` | `docs/review/<target>-findings.md`——以及實際套用的修正 |
@@ -80,6 +82,7 @@ git clone https://github.com/q0015300153/nova-skills.git
 | `nova-prism` | `docs/ui/<surface>-config.md` · `docs/ui/<surface>-qa.md`——以及元件／樣式／測試原始碼 |
 | `nova-observer` | 不直接寫入——它的 `[LOCKED DECISIONS]` 交由 `nova-adjutant` 記錄為 ADR |
 | `nova-ghost` | 不寫入——它負責操作瀏覽器；需要留下的紀錄交由 `nova-adjutant` |
+| `nova-overseer` | 不寫入儲存庫——分析輸出放在暫存資料夾（可能含客戶資料）；它還原出的作業流程交由 `nova-adjutant` 建檔 |
 | `nova-sensor` | 不寫入，唯讀——它彙整上述所有檔案 |
 
 檔案不存在從來不是錯誤，只代表那個 Skill 還沒對這個專案跑過。
@@ -104,6 +107,46 @@ flowchart TD
 
     E --> F["Adjutant<br/>技術文件"]
 ```
+
+---
+
+## 感官：瀏覽器與影片
+
+`nova-ghost` 與 `nova-overseer` 不是生命週期的某個階段——它們是讓整套 Skill 取得「原始碼裡讀不到的資訊」的管道，可供任何階段使用。
+
+```mermaid
+flowchart LR
+    subgraph IN["AI 原本看不到的輸入"]
+        W["即時網頁應用<br/>（已登入的瀏覽器）"]
+        R["螢幕錄影<br/>(.mp4 / .mov / .webm)"]
+    end
+    W --> G["Ghost<br/>看 → 做 → 驗（CDP）"]
+    R --> O["Overseer<br/>變動區域裁切 + OCR 逐字稿"]
+    G --> F["事實：狀態、欄位、步驟"]
+    O --> F
+    F --> AD["Adjutant<br/>作業手冊／使用指南"]
+    F --> OB["Observer<br/>需求 → 決策"]
+    F --> PR["Probe<br/>建置／自動化"]
+```
+
+### Overseer 流程
+
+```mermaid
+flowchart TD
+    V["影片"] --> S0["STEP 0：setup（自動建 venv）+ probe"]
+    S0 --> A["analyze --ocr"]
+    A --> X["取樣畫面，與上一張保留的畫面比對差異"]
+    X --> Y["裁切變動區域、剔除近似重複"]
+    Y --> Z1["c00.jpg … 總覽圖"]
+    Y --> Z2["transcript.md（只列新出現的文字）"]
+    Z2 --> T["先讀逐字稿"]
+    T --> Q{"文字夠用？"}
+    Q -- 是 --> P["[PROCEDURE]，附 [t=…s]"]
+    Q -- 否 --> Z1
+    Z1 --> P
+```
+
+典型用法：`python skills/nova-overseer/scripts/overseer.py analyze demo.mp4 out --ocr`，接著讀 `out/transcript.md`，再只開 `out/index.json` 列出、且文字無法說明的總覽圖。
 
 ---
 
@@ -170,7 +213,7 @@ Foundry 原生移植版本維護於 **[q0015300153/eve-skills](https://github.co
 
 ## 貢獻
 
-歡迎提交 Pull Request。每個 Skill 位於 `skills/<skill-name>/SKILL.md`，完全自包含——執行階段沒有任何 Skill 會載入或依賴另一個 Skill 的定義。唯一的耦合是觀察性的：`nova-sensor` 會讀取其他 Skill 寫出的產物檔案，而檔案不存在時視為「還沒跑過」，不當作錯誤。
+歡迎提交 Pull Request。每個 Skill 位於 `skills/<skill-name>/`，自包含——執行階段沒有任何 Skill 會載入或依賴另一個 Skill 的定義。`SKILL.md` 放助理必須一直遵守的規則；較長的範本、指令速查與調參表放在 `references/`，按需讀取；可執行工具放在 `scripts/`，且必須能自行安裝（不得要求使用者手動設定）。Skill 之間唯一的耦合是觀察性的：`nova-sensor` 會讀取其他 Skill 寫出的產物檔案，而檔案不存在時視為「還沒跑過」，不當作錯誤。新增 Skill 請遵循命名慣例：星海爭霸單位名稱、拼出 N-O-V-A 的四個單字縮寫全名，description 以「The <單位>」開頭。
 
 ---
 

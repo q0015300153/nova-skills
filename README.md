@@ -1,6 +1,6 @@
 # NOVA Skill Suite — Nucleus Origination Vitality Assistant for Software Development
 
-9 specialized Claude Code Skills covering the full lifecycle of any software project — from requirement clarification to build, code review, data quality, testing, interface design, ongoing status monitoring, bug triage, cross-resource cleanup, data governance, and documentation. Applicable to web systems, GUI applications, servers, databases, CLI tools, and embedded software. Each skill is self-contained and can be used independently — no skill requires another to be installed.
+10 specialized Claude Code Skills covering the full lifecycle of any software project — from requirement clarification to build, code review, data quality, testing, interface design, ongoing status monitoring, bug triage, cross-resource cleanup, data governance, and documentation — plus two **senses** that let an AI work with what it cannot natively see: a live browser (`nova-ghost`) and screen recordings (`nova-overseer`). Applicable to web systems, GUI applications, servers, databases, CLI tools, and embedded software. Each skill is self-contained and can be used independently — no skill requires another to be installed.
 
 **English** | [繁體中文](./README.zh-TW.md)
 
@@ -10,6 +10,7 @@
 
 - [Claude Code](https://claude.ai/code) CLI installed
 - Access to the target project (source code, database, deployment environment, etc., depending on the task)
+- *Only for the two tool-backed skills* (installed automatically on first use, nothing global): **Node.js 18+** for `nova-ghost`; **Python 3.9+** for `nova-overseer`
 - Basic familiarity with software engineering concepts — **no platform- or framework-specific knowledge required**; works with any tech stack
 
 ---
@@ -26,7 +27,7 @@ npx skills add github:q0015300153/nova-skills
 npx skills list
 ```
 
-All 9 `nova-*` skills should appear in the output.
+All 10 `nova-*` skills should appear in the output.
 
 **Update** to the latest version:
 
@@ -46,7 +47,7 @@ npx skills remove nova-skills
 git clone https://github.com/q0015300153/nova-skills.git
 ```
 
-Then paste the content of any `skills/<skill-name>/SKILL.md` into the system prompt configuration of your AI assistant of choice.
+Copy the whole `skills/<skill-name>/` folder (not just `SKILL.md`) into your assistant's skills directory. Five skills ship supporting files that `SKILL.md` calls by path — `nova-ghost` and `nova-overseer` include `scripts/` (executable tools that self-install) and `references/`; `nova-adjutant`, `nova-sensor` and `nova-probe` keep long templates or protocols in `references/` and read them on demand. Pasting only `SKILL.md` text into a system prompt leaves those skills without their files. The other five skills are single-file.
 
 ---
 
@@ -63,6 +64,7 @@ Then paste the content of any `skills/<skill-name>/SKILL.md` into the system pro
 | `nova-immortal` | Node Ordeal Validation Assistant | The Immortal: Designs and actually runs extreme test scenarios across **eight categories** — including **Authorization & Data Exposure**, which requests protected data as a role that should be denied and asserts the value is *absent from the response*, not merely hidden from view, across every access path (UI, API, export, logs). Automatable scenarios are committed as real test files so the gate is re-runnable; the gate's standing state and every accepted risk go in `docs/testing/GATE.md`. When a regression test confirms a previously reported bug is actually fixed, formally records it as **`[FIX VALIDATED]`** and hands it off for filing. |
 | `nova-adjutant` | Narrative Orientation Vault Assistant | The Adjutant: Deciphers messy, hard-to-understand code and translates it into clear documentation, comments, and onboarding guides — **written into the repository**, not pasted into the chat. Re-reads both the existing doc and the code it describes before claiming drift, so a stale doc is flagged rather than quietly overwritten. Adds **Incident Record**, formally preserving the symptom, root cause, fix, regression test, and recurrence risk for every resolved bug in `INCIDENTS.md`, checking for a recurrence of a known cause before filing a new one. |
 | `nova-ghost` | Nimble Operative Vision Assistant | The Ghost: Lets an AI drive a real, already-signed-in Chromium browser through a local Chrome DevTools Protocol bridge — no Selenium or Playwright. Checks the bridge and the signed-in account before acting, works in a strict **see → act → verify** loop, prefers DOM operations over coordinates, and hands control back to the human at login, MFA, and any irreversible step. Never reads cookies or tokens. Ships `scripts/ensure-browser.mjs` (auto-detects or launches a dedicated debug browser) and `scripts/cdp.mjs` plus a setup and troubleshooting reference; use it for automation, web-UI development, and browser-based testing. |
+| `nova-overseer` | Neural Observation Video Assistant | The Overseer: Lets an AI understand a **screen recording** (demo, how-to, bug repro, process walkthrough) at a fraction of the usual token cost. Instead of sampling a frame per second, it keeps only the **screen region that changed** at each moment, drops near-duplicates, and packs the crops into a few contact sheets plus an optional **OCR transcript with repeated text removed** — a 5-minute recording becomes a handful of images and a short text file. Installs its own isolated toolchain (private venv under `~/.nova-overseer`, no admin, nothing global) on first use. Reads the transcript before opening any image, cites every claim by timestamp, marks OCR-only digits `[⚠️ OCR ONLY]`, and never transcribes a password, code, or personal address it sees. Ships `scripts/overseer.py`, a smoke-test generator, and a tuning reference. |
 
 ---
 
@@ -72,7 +74,7 @@ The skills produce durable artifacts in your repository. This is deliberate: any
 
 | Skill | Writes to |
 |---|---|
-| `nova-adjutant` | `README.md` · `docs/<module>.md` · `docs/api/<name>.md` · `docs/adr/NNNN-<slug>.md` · `docs/runbooks/<name>.md` · `docs/ONBOARDING.md` · `INCIDENTS.md` · inline docstrings |
+| `nova-adjutant` | `README.md` · `docs/<module>.md` · `docs/api/<name>.md` · `docs/adr/NNNN-<slug>.md` · `docs/runbooks/<name>.md` · `docs/ONBOARDING.md` · `docs/flows/<scope>.md` · `docs/user-guides/<scope>.md` · `INCIDENTS.md` · inline docstrings |
 | `nova-probe` | `docs/build/<target>-blueprint.md` — plus the generated source artifacts themselves |
 | `nova-refinery` | `docs/data/<target>-contract.md` — plus validation/quarantine code in the file where it runs |
 | `nova-raven` | `docs/review/<target>-findings.md` — plus the applied fixes |
@@ -80,6 +82,7 @@ The skills produce durable artifacts in your repository. This is deliberate: any
 | `nova-prism` | `docs/ui/<surface>-config.md` · `docs/ui/<surface>-qa.md` — plus component/style/test source |
 | `nova-observer` | Nothing directly — routes its `[LOCKED DECISIONS]` to `nova-adjutant` to be recorded as an ADR |
 | `nova-ghost` | Nothing — it operates the browser; any record it should leave goes through `nova-adjutant` |
+| `nova-overseer` | Nothing in the repository — analysis output goes to a temp folder (it can contain customer data); the procedure it reconstructs is filed through `nova-adjutant` |
 | `nova-sensor` | Nothing — read-only. It aggregates every file above |
 
 A file that doesn't exist is never an error; it simply means that skill hasn't run against this project yet.
@@ -104,6 +107,46 @@ flowchart TD
 
     E --> F["Adjutant<br/>Documentation"]
 ```
+
+---
+
+## Senses: Browser & Video
+
+`nova-ghost` and `nova-overseer` are not lifecycle stages — they are how the rest of the suite gets information it cannot read from source code. Either can feed any stage.
+
+```mermaid
+flowchart LR
+    subgraph IN["Inputs an AI cannot natively see"]
+        W["Live web app<br/>(signed-in browser)"]
+        R["Screen recording<br/>(.mp4 / .mov / .webm)"]
+    end
+    W --> G["Ghost<br/>see → act → verify over CDP"]
+    R --> O["Overseer<br/>changed-region crops + OCR transcript"]
+    G --> F["Facts: state, fields, steps"]
+    O --> F
+    F --> AD["Adjutant<br/>runbook / user guide"]
+    F --> OB["Observer<br/>requirements → decisions"]
+    F --> PR["Probe<br/>build / automate"]
+```
+
+### Overseer pipeline
+
+```mermaid
+flowchart TD
+    V["Video"] --> S0["STEP 0: setup (auto-venv) + probe"]
+    S0 --> A["analyze --ocr"]
+    A --> X["Sample frames, diff vs last kept frame"]
+    X --> Y["Crop changed region, drop near-duplicates"]
+    Y --> Z1["c00.jpg … contact sheets"]
+    Y --> Z2["transcript.md (new text only)"]
+    Z2 --> T["Read transcript first"]
+    T --> Q{"Text enough?"}
+    Q -- yes --> P["[PROCEDURE] with [t=…s]"]
+    Q -- no --> Z1
+    Z1 --> P
+```
+
+Typical use: `python skills/nova-overseer/scripts/overseer.py analyze demo.mp4 out --ocr`, then read `out/transcript.md` and only the sheets listed in `out/index.json` that the text cannot explain.
 
 ---
 
@@ -170,7 +213,7 @@ A Foundry-native port is maintained at **[q0015300153/eve-skills](https://github
 
 ## Contributing
 
-Pull requests are welcome. Each skill lives in `skills/<skill-name>/SKILL.md` and is fully self-contained — no skill loads or depends on another's definition at runtime. The only coupling is observational: `nova-sensor` reads the artifact files the other skills write, and treats a missing file as "hasn't run yet" rather than an error.
+Pull requests are welcome. Each skill lives in `skills/<skill-name>/` and is self-contained — no skill loads or depends on another's definition at runtime. `SKILL.md` holds the rules the assistant must always follow; long templates, command cheat-sheets and tuning tables go in `references/` and are read on demand; executable tools go in `scripts/` and must install themselves (no manual setup step). The only coupling between skills is observational: `nova-sensor` reads the artifact files the other skills write, and treats a missing file as "hasn't run yet" rather than an error. New skills follow the naming convention: a StarCraft unit name, a four-word backronym spelling N-O-V-A, and "The <Unit>" in the description.
 
 ---
 
